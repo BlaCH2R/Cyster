@@ -9199,13 +9199,12 @@
     $('#btnWelcomeImport').addEventListener('click', importLevelFlow);
     $('#btnWelcomeManual').addEventListener('click', () => window.sbAPI.manualOpen());
     $('#btnTipNext').addEventListener('click', showRandomTip);
-    $('#btnWelcomeUpdate').addEventListener('click', manualUpdateCheck);
     wireUpdateEvents();
     $('#btnWelcomeManage').addEventListener('click', hideWelcome);
     $('#btnWelcomeSettings').addEventListener('click', projectSettingsFlow);
     $('#welcomeGh').addEventListener('click', (e) => {
       e.preventDefault();
-      window.sbAPI.openExternal('https://github.com/Cytoid/cytoid');
+      window.sbAPI.openExternal('https://github.com/BlaCH2R/Cyster');
     });
 
     els.chkNotes.addEventListener('change', () => {
@@ -9292,6 +9291,7 @@
         syncPreviewRatioMenu();
         toast('已还原默认窗口布局');
       },
+      'check-update': manualUpdateCheck,
       'app-settings': showSettings
     };
     document.querySelectorAll('.menu-entry').forEach((entry) => {
