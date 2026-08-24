@@ -4,6 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// 语言切换现在会触发应用重启，探针里拦截 relaunch/exit（避免真退出）。
+const origExit = app.exit.bind(app);
+app.relaunch = () => {};
+app.exit = () => {};
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'cyster_i18n_')));
 require(path.join(__dirname, '..', 'app', 'main.js'));
 
@@ -65,11 +69,24 @@ app.whenReady().then(async () => {
     res.savedLang = await js('return window.sbAPI.getSettings().then((s) => (s || {}).language);');
     res.welcomeSelectOptions = await js('return Array.from(document.querySelectorAll("#welcomeLang option")).map((o) => o.textContent);');
 
-    // UI 路径：通过欢迎页左下角下拉切换语言
+    // UI 路径：通过欢迎页左下角下拉切换语言。
+    // 切语言现在走 applyLanguage → 持久化 → 重启（探针已拦截 relaunch），DOM 不会
+    // 即时刷新；因此这里验证“持久化成功”后用 reload 模拟重启，再断言界面语言。
     await js('const sel = document.getElementById("welcomeLang"); sel.value = "zh-TW"; sel.dispatchEvent(new Event("change", { bubbles: true })); return true;');
-    await sleep(250);
-    res.uiTwFile = await menuText('文件');
+    await sleep(500);
     res.uiLangSaved = await js('return window.sbAPI.getSettings().then((s) => (s || {}).language);');
+    if (res.uiLangSaved !== 'zh-TW') throw new Error('欢迎页切换未持久化: ' + res.uiLangSaved);
+    mainWin.webContents.reload();
+    let reloaded = false;
+    for (let i = 0; i < 200 && !reloaded; i++) {
+      try {
+        reloaded = await mainWin.webContents.executeJavaScript(
+          '!!window.SBi18n && document.body.classList.contains("welcome-mode") && !!document.getElementById("welcomeLang")');
+      } catch (e) {}
+      if (!reloaded) await sleep(100);
+    }
+    if (!reloaded) throw new Error('模拟重启（reload）后主窗口未就绪');
+    res.uiTwFile = await menuText('文件');
 
     // 断言
     if (res.defaultLang !== 'zh-CN') throw new Error('默认语言异常: ' + res.defaultLang);
@@ -83,8 +100,7 @@ app.whenReady().then(async () => {
         !res.welcomeSelectOptions.includes('English / English')) {
       throw new Error('欢迎页语言选项缺少双语标签: ' + JSON.stringify(res.welcomeSelectOptions));
     }
-    if (res.uiTwFile !== '檔案') throw new Error('欢迎页下拉切换失效: ' + res.uiTwFile);
-    if (res.uiLangSaved !== 'zh-TW') throw new Error('欢迎页切换未持久化: ' + res.uiLangSaved);
+    if (res.uiTwFile !== '檔案') throw new Error('欢迎页下拉切换失效（重启后）: ' + res.uiTwFile);
 
     // Tips 英文翻译：全部 93 条正文/标题在 en 下应无中文。
     await js('window.SBi18n.setLanguage("en", false); return true;');

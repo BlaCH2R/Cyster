@@ -4,6 +4,12 @@ const { app, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+// 切语言现在会触发应用重启；探针拦截 relaunch/exit（避免真退出），
+// 用 reload 模拟重启后继续断言。
+const origExit = app.exit.bind(app);
+let relaunchCalled = false;
+app.relaunch = () => { relaunchCalled = true; };
+app.exit = () => {};
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'cyster_livestats_')));
 require(path.join(__dirname, '..', 'app', 'main.js'));
 const OUT = path.join(__dirname, 'i18n_livestats_probe_out.json');
@@ -11,7 +17,7 @@ const DIR = 'V:/cytoid storyboarder/项目/实测：雪女/雪女';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const res = { ok: false };
 app.whenReady().then(async () => {
-  const timer = setTimeout(() => { fs.writeFileSync(OUT, JSON.stringify({ fatal: 'timeout' })); app.exit(1); }, 150000);
+  const timer = setTimeout(() => { fs.writeFileSync(OUT, JSON.stringify({ fatal: 'timeout' })); origExit(1); }, 150000);
   let win = null;
   const js = async (code) => {
     const r = await win.webContents.executeJavaScript(
@@ -29,6 +35,25 @@ app.whenReady().then(async () => {
       if (ready) break;
       await sleep(100);
     }
+    // 通过欢迎页下拉切到英文（用户路径）→ 持久化 → 触发重启（探针已拦截）
+    await js('const sel = document.getElementById("welcomeLang"); sel.value = "en"; sel.dispatchEvent(new Event("change", { bubbles: true })); return true;');
+    await sleep(500);
+    res.persisted = await js('return window.sbAPI.getSettings().then((s) => (s || {}).language);');
+    res.relaunchCalled = relaunchCalled;
+    if (res.persisted !== 'en' || !relaunchCalled) {
+      throw new Error('切语言未持久化/未触发重启: ' + JSON.stringify({ p: res.persisted, r: relaunchCalled }));
+    }
+    // 模拟重启：reload 主窗口，让应用按持久化语言重新初始化
+    win.webContents.reload();
+    let reloaded = false;
+    for (let i = 0; i < 200 && !reloaded; i++) {
+      try {
+        reloaded = await js('return !!window.__sb && !!window.SBi18n && document.body.classList.contains("welcome-mode");');
+      } catch (e) {}
+      if (!reloaded) await sleep(100);
+    }
+    if (!reloaded) throw new Error('模拟重启（reload）后主窗口未就绪');
+
     // 加载雪女项目（含 controller）
     const level = JSON.parse(fs.readFileSync(path.join(DIR, 'level.json'), 'utf8'));
     const chart = level.charts[0];
@@ -44,10 +69,6 @@ app.whenReady().then(async () => {
     };
     await js('await window.__sb.loadLevelInfo(' + JSON.stringify(info) + '); return true;');
     await sleep(2000);
-
-    // 通过欢迎页下拉切到英文（用户路径）
-    await js('const sel = document.getElementById("welcomeLang"); sel.value = "en"; sel.dispatchEvent(new Event("change", { bubbles: true })); return true;');
-    await sleep(400);
 
     // 打开 controller 实时统计面板（预览空白处点击的等效路径）
     await js('window.__sb.state.previewEmptyFocus = true; window.__sb.refreshAll(); return true;');
@@ -74,5 +95,5 @@ app.whenReady().then(async () => {
   } catch (e) { res.error = String(e && (e.stack || e.message) || e); }
   clearTimeout(timer);
   fs.writeFileSync(OUT, JSON.stringify(res, null, 2));
-  app.exit(res.ok ? 0 : 1);
+  origExit(res.ok ? 0 : 1);
 });

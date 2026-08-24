@@ -107,6 +107,13 @@ ipcMain.on('app:language-changed', (e, lang) => {
   }
 });
 
+// 语言切换确认后重启（新语言在下次启动时完整生效）。
+ipcMain.handle('app:relaunch', () => {
+  app.relaunch();
+  app.exit(0);
+  return true;
+});
+
 function createWindow() {
   // Remove the default Electron application menu entirely: its accelerators
   // (Ctrl+W close, Ctrl+R reload, Ctrl+Shift+I devtools, ...) are web/browser

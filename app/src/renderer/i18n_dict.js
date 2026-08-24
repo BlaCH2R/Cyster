@@ -317,6 +317,8 @@ window.CYSTER_I18N_EN = {
   " 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。": " and the official StoryBoard format docs (v2.0.2). StoryBoard features follow what the docs explicitly list.",
   "界面语言": "UI language",
   "语言已切换": "Language changed",
+  "切换语言": "Switch language",
+  "语言设置已保存，正在重启…": "Language saved, restarting…",
   "更新已就绪": "Update ready",
   "最早": "Earliest",
   "最晚": "Latest",

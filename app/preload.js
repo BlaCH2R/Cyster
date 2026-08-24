@@ -59,5 +59,6 @@ contextBridge.exposeInMainWorld('sbAPI', {
   ,
   // 语言切换联动：主窗口切换后通知独立窗口。
   notifyLanguageChanged: (lang) => ipcRenderer.send('app:language-changed', lang),
-  onLanguageChanged: (cb) => ipcRenderer.on('app:language-changed', (e, lang) => cb(lang))
+  onLanguageChanged: (cb) => ipcRenderer.on('app:language-changed', (e, lang) => cb(lang)),
+  relaunchApp: () => ipcRenderer.invoke('app:relaunch')
 });

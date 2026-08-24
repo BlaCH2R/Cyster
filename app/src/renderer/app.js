@@ -7887,23 +7887,33 @@
   let updateChecking = false;
 
   // 切换语言并全量刷新界面（设置面板与欢迎页下拉共用）。
-  function applyLanguage(l) {
-    if (!window.SBi18n) return;
-    window.SBi18n.setLanguage(l, true);
-    window.SBi18n.applyStatic(document);
-    window.SBi18n.localizeSchema();
-    if (window.sbAPI && window.sbAPI.notifyLanguageChanged) window.sbAPI.notifyLanguageChanged(l);
-    renderProperties();
-    renderObjectTree();
-    renderTimeline();
-    showWelcome();
-    const mb = document.getElementById('modalBox');
-    if (mb) window.SBi18n.applyStatic(mb);
+  // 同步两个语言下拉的显示值（取消切换时复位用）。
+  function syncLangSelects() {
+    const cur = window.SBi18n ? window.SBi18n.getLanguage() : 'zh-CN';
     const wl = $('#welcomeLang');
-    if (wl) wl.value = l;
+    if (wl) wl.value = cur;
     const sl = $('#setLanguage');
-    if (sl) sl.value = l;
-    toast(window.SBi18n.t('语言已切换'));
+    if (sl) sl.value = cur;
+  }
+
+  // 切换语言：若有未保存修改先确认（保存/不保存/取消），确认后持久化并重启，
+  // 让新语言在下次启动时完整生效（避免热切换漏翻译）。
+  async function applyLanguage(l) {
+    if (!window.SBi18n) return;
+    if (l === window.SBi18n.getLanguage()) return;
+    if (state.dirty && state.projectPath) {
+      const ok = await confirmDiscardUnsaved(__t('切换语言'));
+      if (!ok) {
+        syncLangSelects(); // 取消：复位下拉
+        return;
+      }
+    }
+    window.SBi18n.setLanguage(l, true); // 持久化
+    if (window.sbAPI && window.sbAPI.notifyLanguageChanged) window.sbAPI.notifyLanguageChanged(l);
+    toast(window.SBi18n.t('语言设置已保存，正在重启…'));
+    if (window.sbAPI && window.sbAPI.relaunchApp) {
+      setTimeout(() => window.sbAPI.relaunchApp(), 300);
+    }
   }
 
   async function manualUpdateCheck() {
