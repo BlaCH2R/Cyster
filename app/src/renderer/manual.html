@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="styles.css" />
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; background: #14171c; }
+    /* 手册正文允许选择/复制（styles.css 全局 body user-select:none 会禁用） */
+    body { user-select: text; -webkit-user-select: text; }
+    #docxContainer, #docxContainer * { user-select: text; -webkit-user-select: text; }
     #manualToolbar {
       display: flex; align-items: center; gap: 8px; padding: 7px 12px;
       border-bottom: 1px solid #262b33; background: #1a1e24;

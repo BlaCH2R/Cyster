@@ -29,5 +29,6 @@
 - `i18n_schema_check.js`：属性面板 schema/controller 卡片标签翻译检查
 - `i18n_close_dialog_probe.js`：未保存关闭确认弹窗（英文模式按钮可点/可退出）验证
 - `i18n_livestats_probe.js`：controller 实时统计面板（空白处点击）英文残留检查
+- `manual_select_probe.js`：手册窗口文本可选择/复制验证
 
 其余 `tools/` 脚本属于本地开发资产，恢复完整工具集请从旧提交或本地备份取回。

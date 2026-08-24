@@ -224,6 +224,19 @@ function openManualWindow() {
     }
   });
   manualWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'manual.html'));
+  // 手册窗口右键菜单：复制 / 全选（默认无应用菜单，需显式提供）。
+  manualWindow.webContents.on('context-menu', (e, params) => {
+    const l = uiLanguage();
+    const copyLabel = l === 'en' ? 'Copy' : l === 'zh-TW' ? '複製' : '复制';
+    const selectLabel = l === 'en' ? 'Select All' : l === 'zh-TW' ? '全選' : '全选';
+    const template = [];
+    if (params.selectionText) {
+      template.push({ label: copyLabel, role: 'copy' });
+    }
+    template.push({ label: selectLabel, role: 'selectAll' });
+    const menu = Menu.buildFromTemplate(template);
+    menu.popup({ window: manualWindow });
+  });
   manualWindow.on('closed', () => {
     manualWindow = null;
   });
