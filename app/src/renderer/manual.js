@@ -86,31 +86,31 @@ function translateManualDoc(container) {
   const lang = window.SBi18n.getLanguage();
   if (lang === 'en') {
     const EN = window.CYSTER_MANUAL_EN || {};
-    container.querySelectorAll('p').forEach((p) => {
-      const key = (p.textContent || '').replace(/\s+/g, ' ').trim();
-      // 摊平处理会把白色 ★ 转成 ⭐，做一次双向归一化再查词典。
-      const hit = EN[key] != null ? EN[key] : (EN[key.replace(/⭐/g, '★')] != null ? EN[key.replace(/⭐/g, '★')] : null);
-      if (key && hit != null) {
-        const t = hit;
-        if (p.querySelector('img, table')) {
-          // 含图片/表格的段落：保留元素，删除全部文本节点（含 span 内的），
-          // 再把英文译文作为文本加入段落末尾。
-          const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, {
-            acceptNode: (n) => (n.parentElement && n.parentElement.closest('script,style'))
-              ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
-          });
-          const textNodes = [];
-          while (tw.nextNode()) textNodes.push(tw.currentNode);
-          textNodes.forEach((n) => n.remove());
-          const span = document.createElement('span');
-          span.textContent = t;
-          p.appendChild(span);
-          return;
-        }
-        const span = document.createElement('span');
-        span.textContent = t;
-        p.replaceChildren(span);
+    // 逐文本节点翻译：保留每个 run 的行内样式（加粗/颜色/斜体等），
+    // 只替换文本内容。摊平处理会把白色 ★ 转成 ⭐，做一次归一化再查词典。
+    const nodes = [];
+    const tw = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => {
+        const el = n.parentElement;
+        if (!el || el.closest('script,style')) return NodeFilter.FILTER_REJECT;
+        return /[\u4e00-\u9fff]/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
+    });
+    while (tw.nextNode()) nodes.push(tw.currentNode);
+    const trans = nodes.map((n) => {
+      const key = n.nodeValue;
+      return EN[key] != null ? EN[key]
+        : (EN[key.replace(/⭐/g, '★')] != null ? EN[key.replace(/⭐/g, '★')] : null);
+    });
+    nodes.forEach((n, i) => {
+      const hit = trans[i];
+      if (hit == null) return;
+      // 中文 run 间没有空格，英文相邻 run 以字母/数字开头时补一个空格，
+      // 避免出现 “If youhave” 这类粘连（标点开头则不补）。
+      const nextHit = trans[i + 1];
+      let out = hit;
+      if (nextHit && /^[A-Za-z0-9]/.test(nextHit) && !/\s$/.test(out)) out += ' ';
+      n.nodeValue = out;
     });
   } else if (lang === 'zh-TW') {
     const nodes = [];
