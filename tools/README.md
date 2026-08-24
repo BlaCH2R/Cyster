@@ -26,5 +26,6 @@
 - `update_entry_probe.js`：检查更新入口与 GitHub 链接
 - `i18n_probe.js`：语言切换（简体/繁体/英文）与词典/schema 本地化验证
 - `i18n_manual_debug.js`：手册英文翻译残留检查（列出仍含中文的段落）
+- `i18n_schema_check.js`：属性面板 schema/controller 卡片标签翻译检查
 
 其余 `tools/` 脚本属于本地开发资产，恢复完整工具集请从旧提交或本地备份取回。

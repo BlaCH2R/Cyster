@@ -60,6 +60,7 @@ tools/*
 !tools/update_entry_probe.js
 !tools/i18n_probe.js
 !tools/i18n_manual_debug.js
+!tools/i18n_schema_check.js
 
 # ---- 通用 ----
 *.log

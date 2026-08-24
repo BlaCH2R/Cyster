@@ -91,7 +91,7 @@ async function load() {
     $('#nsMerge').checked = ctx.target ? !!(ctx.target.merge) : true;
     lastBoundId = boundId;
   }
-  $('#nsPick').textContent = ctx.pickActive ? '停止拾取' : '手动拾取note';
+  $('#nsPick').textContent = $t(ctx.pickActive ? '停止拾取' : '手动拾取note');
   if (isList) {
     renderList(ctx.target.note);
     $('#nsStatus').textContent = $t('手动列表模式：') + ctx.target.note.length + $t(' 个 note（点击“应用”后生效）');

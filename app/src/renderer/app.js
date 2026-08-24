@@ -209,7 +209,7 @@
       const selCount = (state.selectedKfs || []).length;
       if (selCount > 1) {
         items.push({
-          label: `删除选中的 ${selCount} 个关键帧`,
+          label: __t('删除选中的 ') + selCount + __t(' 个关键帧'),
           action: () => deleteSelection(),
           danger: true
         });
@@ -766,7 +766,7 @@
     const lostCount = scanLostNoteMappings();
     if (lostCount) {
       await confirmDialog('检测到谱面变更',
-        `${lostCount} 个 note 选择器/时间块的原映射由于谱面发生变更而失效或受影响，请重新调整这些标红的note列表或调整选择器条件`,
+        `${lostCount} ${__t('个 note 选择器/时间块的原映射由于谱面发生变更而失效或受影响，请重新调整这些标红的note列表或调整选择器条件')}`,
         [{ label: '知道了', cls: 'primary' }]);
     }
     updateSwitchDifficultyState();
@@ -1986,7 +1986,7 @@
     const cur = obj.order != null ? obj.order : 0;
     if (cur === order) return false;
     if (orderTimeConflict(obj, layer, order, new Set([obj]))) {
-      toast(`该 order ${order} 层在当前时间已有其它对象，无法移入`, true);
+      toast(__t('该 order ') + order + __t(' 层在当前时间已有其它对象，无法移入'), true);
       return false;
     }
     snapshot();
@@ -2078,14 +2078,14 @@
     for (const [layer, list] of byLayer) {
       for (let i = 0; i < list.length; i++) {
         if (orderTimeConflict(list[i].obj, layer, order, targetSet)) {
-          toast(`该 order ${order} 层在当前时间已有其它对象，无法移入`, true);
+          toast(__t('该 order ') + order + __t(' 层在当前时间已有其它对象，无法移入'), true);
           return false;
         }
         for (let j = i + 1; j < list.length; j++) {
           const a = objectTimeSpan(list[i].obj);
           const b = objectTimeSpan(list[j].obj);
           if (a && b && a.start < b.end - 0.001 && b.start < a.end - 0.001) {
-            toast(`同 layer ${layer} 的多个对象时间重叠，不能共用一个 order`, true);
+            toast(__t('同 layer ') + layer + __t(' 的多个对象时间重叠，不能共用一个 order'), true);
             return false;
           }
         }
@@ -4803,10 +4803,8 @@
     if (!obj) return;
     const cur = obj.parent_id != null ? String(obj.parent_id) : '';
     openModal('使用 note 选择器作为 Parent_id', `
-      <div class="help-text">Parent_id 模板需包含 <b>$note</b> 占位符，导出时按每个 note
-      替换成对应 ID（如 parent_$note → parent_492）。应用 note 选择器后自动为未被
-      控制器覆盖的 note 创建纯 ID 载体 note_controller。</div>
-      <div class="field"><label>模板</label><input type="text" id="pmParentId"
+      <div class="help-text">${__t('Parent_id 模板需包含 <b>$note</b> 占位符，导出时按每个 note 替换成对应 ID（如 parent_$note → parent_492）。应用 note 选择器后自动为未被控制器覆盖的 note 创建纯 ID 载体 note_controller。')}</div>
+      <div class="field"><label>${__t('模板')}</label><input type="text" id="pmParentId"
         value="${escapeHtml(cur.indexOf('$note') >= 0 ? cur : 'parent_$note')}" style="flex:1"></div>`,
       [{ label: '取消' }, { label: '使用', cls: 'primary' }], (b) => {
         if (b.label !== '使用') return;
@@ -5024,15 +5022,15 @@
       `<div class="field"><label>合并时间块</label><input type="checkbox" id="nselMerge"${(!noteSelectorTarget || (nsDraft ? nsDraft.merge : isNoteSelectorMerged(noteSelectorTarget && noteSelectorTarget.id))) ? ' checked' : ''}></div>` +
       (state.nsTimeTarget
         ? `<div class="field"><label>写入时间</label><select id="nselTimeExpr">` +
-          `<option value="start:$note">起始 start:$note</option>` +
-          `<option value="end:$note">结束 end:$note</option>` +
-          `<option value="intro:$note">渐入 intro:$note</option>` +
+          `<option value="start:$note">${__t('起始 start:$note')}</option>` +
+          `<option value="end:$note">${__t('结束 end:$note')}</option>` +
+          `<option value="intro:$note">${__t('渐入 intro:$note')}</option>` +
           `<option value="at:$note:0.5">at:$note:0.5</option></select>` +
-          `<button class="mini-btn" id="nselWriteTime">写入</button></div>`
+          `<button class="mini-btn" id="nselWriteTime">${__t('写入')}</button></div>`
         : '') +
-      `<div class="btn-row"><button class="mini-btn" id="nselApply">${noteSelectorTarget ? '应用（写入绑定控制器）' : '应用（写入选中 note）'}</button>` +
-      `<button class="mini-btn" id="nselToggleAll">全选/清空条件</button>` +
-      `<button class="mini-btn" id="nselPick">${state.notePickerActive ? '停止拾取' : '手动拾取note'}</button></div>`;
+      `<div class="btn-row"><button class="mini-btn" id="nselApply">${__t(noteSelectorTarget ? '应用（写入绑定控制器）' : '应用（写入选中 note）')}</button>` +
+      `<button class="mini-btn" id="nselToggleAll">${__t('全选/清空条件')}</button>` +
+      `<button class="mini-btn" id="nselPick">${__t(state.notePickerActive ? '停止拾取' : '手动拾取note')}</button></div>`;
     const readSel = () => {
       const sel = {};
       const types = Array.from(body.querySelectorAll('.nsel-type:checked')).map((el) => Number(el.dataset.type));
@@ -5501,7 +5499,7 @@
     persistProjectState();
     dirtyAndRefresh();
     const parts = repairs.map((r) =>
-      `${r.template}（${r.clones}个拆分条目→合并${r.noteIds.length}个note）`).join('、');
+      __t('「') + r.template + __t('」(') + r.clones + __t('个拆分条目→合并') + r.noteIds.length + __t('个note）')).join('、');
     saveStoryboard().then((ok) => {
       toast(ok
         ? __t('已修复合并时间块：') + parts + __t('（已保存）')
@@ -5704,7 +5702,7 @@
     if (v === undefined || v === null) return '—';
     if (typeof v === 'boolean') return v ? '开' : '关';
     if (typeof v === 'number') return String(Math.round(v * 1000) / 1000);
-    if (Array.isArray(v)) return `[${v.length} 项]`;
+    if (Array.isArray(v)) return '[' + v.length + ' ' + __t('项') + ']';
     return String(v);
   }
 
@@ -5789,7 +5787,7 @@
     renderProperties();
     renderTimeline();
     timeline.setMultiSelection({ ids: [], kfs: [] });
-    toast(`将单独编辑 note ${noteId}（位于合并时间块 ${blockObj.id}，首次修改后独立）`);
+    toast(__t('将单独编辑 note ') + noteId + __t('（位于合并时间块 ') + blockObj.id + __t('，首次修改后独立）'));
   }
 
   function renderProperties() {
@@ -5849,7 +5847,7 @@
         const nid = splitEntryId(noteSel[0]).noteId;
         const note = state.chart ? state.chart.noteById(nid) : null;
         const nc = findNoteControllerForNote(nid);
-        body.innerHTML = selBtnHtml + `<div class="prop-section"><h4>Note 音符</h4>` +
+        body.innerHTML = selBtnHtml + `<div class="prop-section"><h4>${__t('Note 音符')}</h4>` +
           field('ID', nid != null ? String(nid) : '') +
           field('开始时间', note ? String(note.start_time.toFixed(3)) : '') +
           field('类型', note != null ? String(note.type) : '') +
@@ -5907,7 +5905,7 @@
       const kfTimeSame = kfTimeVals.length === targetStates.length && kfTimeVals.length > 0 &&
         kfTimeVals.every((v) => JSON.stringify(v) === JSON.stringify(kfTimeVals[0]));
       const batchTimeHtml = canBatchTime
-        ? `<div class="field"><label>时间 (秒)</label><input id="multiKfTime" type="text" value="${kfTimeSame ? escapeHtml(String(kfTimeVals[0])) : ''}" placeholder="支持$note表达式"></div>`
+        ? `<div class="field"><label>${__t('时间 (秒)')}</label><input id="multiKfTime" type="text" value="${kfTimeSame ? escapeHtml(String(kfTimeVals[0])) : ''}" placeholder="${__t('支持$note表达式')}"></div>`
         : '';
       // 批量 Parent / Target：对象级全帧同步字段，多选时统一编辑。
       const parentVals = targetStates.map((t) => t.obj.parent_id);
@@ -6015,7 +6013,7 @@
             if (typeof tok === 'object') noteSelectorIds(tok).forEach(addNoteToken);
           };
           for (const t of targetStates) addNoteToken(t.obj && t.obj.note);
-          noteRowHtml = `<div class="field"><label>关联 Note</label><span style="flex:1;color:var(--text)">${escapeHtml(noteIds.join(', '))}（共 ${noteIds.length}）</span></div>`;
+          noteRowHtml = `<div class="field"><label>${__t('关联 Note')}</label><span style="flex:1;color:var(--text)">${escapeHtml(noteIds.join(', '))}${__t('（共 ')}${noteIds.length}${__t('）')}</span></div>`;
           schema = { ...schema, fields: schema.fields.filter((f) => f.key !== 'note') };
         }
         const merged = {};
@@ -6197,10 +6195,10 @@
       const isSelObj = obj.note && typeof obj.note === 'object';
       const merged = isNoteSelectorMerged(obj.id);
       html = `<div class="prop-section" style="border-bottom:none">` +
-        `<button class="ctrl-card-add" id="btnEditThisSelector">编辑此note选择器</button>` +
-        (isSelObj && !merged ? `<button class="ctrl-card-add" id="btnMergeSelectorBlock">合并选择器时间块</button>` : '') +
+        `<button class="ctrl-card-add" id="btnEditThisSelector">${__t('编辑此note选择器')}</button>` +
+        (isSelObj && !merged ? `<button class="ctrl-card-add" id="btnMergeSelectorBlock">${__t('合并选择器时间块')}</button>` : '') +
         (isParentCarrier(obj.id)
-          ? `<div class="help-text carrier-note-hint">这是一个由parent_ID功能自动生成的载体note_controller，对其直接修改可能无法达到预期效果；若要编辑note选择器请前往对应的使用了parent_ID的对象中进行编辑。</div>`
+          ? __t('<div class="help-text carrier-note-hint">这是一个由parent_ID功能自动生成的载体note_controller，对其直接修改可能无法达到预期效果；若要编辑note选择器请前往对应的使用了parent_ID的对象中进行编辑。</div>')
           : '') +
         `</div>` + html;
     }
@@ -6270,7 +6268,7 @@
         } else {
           const sel = state.selectedKfExpression === g.token ? ' selected' : '';
           html += `<div class="key-item${sel}" data-kf-exp="${escapeHtml(g.token)}">` +
-            `<span class="klabel">表达式</span><span class="kt">${escapeHtml(g.token)}</span>` +
+            `<span class="klabel">${__t('表达式')}</span><span class="kt">${escapeHtml(g.token)}</span>` +
             `<span class="del" title="${__t('删除该表达式的全部关键帧')}">${svgIcon('close', 12)}</span></div>`;
         }
       }
@@ -6282,14 +6280,14 @@
       });
     }
     html += '</div><div class="btn-row">';
-    html += `<button class="mini-btn" id="btnAddKf">${svgIcon('plus', 12, true)}在播放头添加关键帧</button>`;
-    html += `<button class="mini-btn" id="btnCopyKf">复制当前帧</button>`;
+    html += `<button class="mini-btn" id="btnAddKf">${svgIcon('plus', 12, true)}${__t('在播放头添加关键帧')}</button>`;
+    html += `<button class="mini-btn" id="btnCopyKf">${__t('复制当前帧')}</button>`;
     html += '</div></div>';
 
     const commonRow = type === 'controller'
       ? `<span class="state-common">` +
-        `<label title="到达后销毁">销毁 <input type="checkbox" id="kfDestroy" ${stateJson.destroy ? 'checked' : ''} /></label>` +
-        `<label>缓动 <select id="kfEasing"></select></label>` +
+        `<label title="${__t('到达后销毁')}">${__t('销毁')} <input type="checkbox" id="kfDestroy" ${stateJson.destroy ? 'checked' : ''} /></label>` +
+        `<label>${__t('缓动')} <select id="kfEasing"></select></label>` +
         `</span>`
       : '';
     const interpHint = interpolated
@@ -7248,7 +7246,7 @@
     if (!objs.length) { toast('请先选中对象', true); return; }
     snapshot();
     for (const obj of objs) addKeyframeAtPlayhead(obj);
-    toast(`已为 ${objs.length} 个对象在播放头添加关键帧`);
+    toast(__t('已为 ') + objs.length + __t(' 个对象在播放头添加关键帧'));
   }
 
   // Copy the selected keyframe(s) to the internal clipboard. Multi-selected
@@ -7449,9 +7447,9 @@
         state.selectedIds = [];
         state.previewEmptyFocus = true;
       }
-      toast(`已删除「${card.label}」`);
+      toast(__t('已删除「') + card.label + __t('」'));
     } else {
-      toast(`已删除「${card.label}」`);
+      toast(__t('已删除「') + card.label + __t('」'));
     }
     refreshAll();
   }
@@ -7466,17 +7464,17 @@
   function onControllerCardContextMenu(card, ownerId, x, y) {
     if (ownerId == null) {
       showContextMenu(x, y, [
-        { label: `启用「${card.label}」`, action: () => createControllerWithCards([card.key], preview.time) }
+        { label: __t('启用「') + card.label + __t('」'), action: () => createControllerWithCards([card.key], preview.time) }
       ]);
     } else {
       const items = [
-        { label: `删除「${card.label}」`, danger: true, action: () => deleteCardFromTrack(card, ownerId) },
+        { label: __t('删除「') + card.label + __t('」'), danger: true, action: () => deleteCardFromTrack(card, ownerId) },
         { label: '跳转至对应轨道', action: () => jumpToControllerTrack(ownerId) }
       ];
       // 选中 controller 轨道时：可把该属性（含关键帧）整体拆分到新轨道。
       if (state.selectedObjId === ownerId) {
         items.splice(1, 0, {
-          label: `拆分「${card.label}」至新轨道`,
+          label: __t('拆分「') + card.label + __t('」至新轨道'),
           action: () => splitCardToNewTrack(card, ownerId)
         });
       }
@@ -7548,7 +7546,7 @@
     }
     state.dirty = true;
     refreshAll();
-    toast(`已为轨道 ${trackId} 分配 ${valid.length} 个属性卡片`);
+    toast(__t('已为轨道 ') + trackId + __t(' 分配 ') + valid.length + __t(' 个属性卡片'));
   }
 
   // 工具：修复扫描线变速事件颜色。原版引擎会在变速事件时自动把扫描线染成
@@ -7608,7 +7606,7 @@
     state.controllerCards[id] = ['scanline_color'];
     state.dirty = true;
     refreshAll();
-    toast(`已生成扫描线变速事件颜色修复 controller：${id}（覆盖 ${events.length} 个变速事件）`);
+    toast(__t('已生成扫描线变速事件颜色修复 controller：') + id + __t('（覆盖 ') + events.length + __t(' 个变速事件）'));
   }
 
   // 拆分：把当前轨道中该卡片的数值（连带对应关键帧）整体移动到一条新轨道。
@@ -7633,7 +7631,7 @@
       states.push(clone);
     }
     if (!hasK0 && !states.length) {
-      toast(`「${card.label}」在当前轨道没有已设置的关键帧`, true);
+      toast(__t('「') + card.label + __t('」在当前轨道没有已设置的关键帧'), true);
       return;
     }
     snapshot();
@@ -7670,8 +7668,8 @@
     state.dirty = true;
     refreshAll();
     toast(srcDeleted
-      ? `已拆分「${card.label}」至新轨道 ${newId}（源轨道已空，自动删除）`
-      : `已拆分「${card.label}」至新轨道 ${newId}`);
+      ? __t('已拆分「') + card.label + __t('」至新轨道 ') + newId + __t('（源轨道已空，自动删除）')
+      : __t('已拆分「') + card.label + __t('」至新轨道 ') + newId);
   }
 
   // Drop a controller option card onto the timeline: write the card's block
@@ -7699,7 +7697,7 @@
     // 卡片唯一性：已被其它控制器轨道引用时拒绝重复引用。
     const ownerId = controllerCardOwners()[card.key];
     if (ownerId != null && ownerId !== obj.id) {
-      toast(`「${card.label}」已被其他controller轨道使用，不能在多轨道重复引用`, true);
+      toast(__t('「') + card.label + __t('」已被其他controller轨道使用，不能在多轨道重复引用'), true);
       return;
     }
     snapshot();
@@ -7730,7 +7728,7 @@
     state.dirty = true;
     setTime(time, false);
     dirtyAndRefresh();
-    toast(`已添加「${card.label}」关键帧 @ ${fmtTime(time)}`);
+    toast(__t('已添加「') + card.label + __t('」关键帧 @ ') + fmtTime(time));
   }
 
   // Add an object of the given category from the left-panel "对象" section,
@@ -8234,7 +8232,7 @@
     const childType = childEntry && childEntry.type;
     const parentType = entry.type;
     if (kind === 'target_id') {
-      if (parentType !== childType) return { ok: false, msg: `target_id 必须指向同类型对象（当前是 ${parentType}）` };
+      if (parentType !== childType) return { ok: false, msg: __t('target_id 必须指向同类型对象（当前是 ') + parentType + __t('）') };
       return { ok: true };
     }
     if (childType === 'note_controller') return { ok: false, msg: 'Note Controller cannot have a Parent' };
@@ -8601,8 +8599,8 @@
         }
         notice.innerHTML = issues.map((m) => `<div>⚠ ${escapeHtml(m)}</div>`).join('');
         $('#modalFoot').innerHTML = `
-          <button class="dlg-btn" id="leBack">返回修改</button>
-          <button class="dlg-btn primary" id="leConfirmSave">仍要保存</button>`;
+          <button class="dlg-btn" id="leBack">${__t('返回修改')}</button>
+          <button class="dlg-btn primary" id="leConfirmSave">${__t('仍要保存')}</button>`;
         $('#leBack').addEventListener('click', () => { if (notice) notice.remove(); restoreFoot(); });
         $('#leConfirmSave').addEventListener('click', () => {
           if (notice) notice.remove();
@@ -9695,7 +9693,7 @@
           : '从未保存';
         const choice = await confirmDialog(
           '有未保存的修改',
-          `最后一次保存在${lastText}，现在退出会遗失自最后一次保存以来的所有内容，继续吗？`,
+          `${__t('最后一次保存在')}${lastText}${__t('，现在退出会遗失自最后一次保存以来的所有内容，继续吗？')}`,
           [
             { label: '取消', cls: '' },
             { label: '确认', cls: '' },

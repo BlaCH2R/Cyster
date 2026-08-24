@@ -944,7 +944,7 @@
       const add = document.createElement('button');
       add.type = 'button';
       add.className = 'ctrl-card-add';
-      add.textContent = '+ 添加controller属性';
+      add.textContent = $t('+ 添加controller属性');
       add.title = $t('给该轨道分配一个或多个新的属性卡片');
       add.addEventListener('click', () => opts.onAddCard());
       container.appendChild(add);
