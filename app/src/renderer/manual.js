@@ -69,7 +69,7 @@ function wireTocJumps(container) {
     const target = targets.get(num);
     if (!target) continue;
     el.classList.add('toc-jump');
-    el.title = '点击跳转到本章';
+    el.title = $t('点击跳转到本章');
     el.addEventListener('click', () => scrollToEl(target));
     wired++;
   }

@@ -82,9 +82,9 @@
     <main id="main">
       <!-- Left: assets + objects -->
       <section id="leftPanel" class="panel">
-        <div class="panel-title"><span>素材库</span></div>
+        <div class="panel-title"><span data-i18n="素材库">素材库</span></div>
         <div id="assetList" class="asset-list"></div>
-        <div class="panel-title"><span>对象</span></div>
+        <div class="panel-title"><span data-i18n="对象">对象</span></div>
         <div id="objectAddList" class="object-add-list"></div>
       </section>
       <div id="splitL" class="splitter-v"></div>
@@ -203,6 +203,15 @@
         <button id="btnTipNext" class="mini-btn" data-i18n="换一条" title="随机切换到另一条">换一条</button>
       </div>
       <div id="welcomeTipBody" class="wt-body"></div>
+    </div>
+
+    <!-- 欢迎页左下角语言切换 -->
+    <div class="welcome-lang">
+      <select id="welcomeLang" title="Language / 语言">
+        <option value="zh-CN">简体中文 / Simplified Chinese</option>
+        <option value="zh-TW">繁體中文 / Traditional Chinese</option>
+        <option value="en">English / English</option>
+      </select>
     </div>
   </div>
 

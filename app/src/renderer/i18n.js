@@ -63,9 +63,21 @@
     if (!Schema || !Schema.SCHEMAS) return;
     const walkFields = (fields) => {
       for (const f of fields || []) {
-        if (f && f.label) {
-          if (f._i18nSrc == null) f._i18nSrc = f.label;
-          f.label = t(f._i18nSrc);
+        if (!f) continue;
+        for (const key of ['label', 'placeholder', 'tip']) {
+          if (f[key]) {
+            const srcKey = '_i18n' + key;
+            if (f[srcKey] == null) f[srcKey] = f[key];
+            f[key] = t(f[srcKey]);
+          }
+        }
+        if (Array.isArray(f.options)) {
+          for (const o of f.options) {
+            if (o && o.label) {
+              if (o._i18nSrc == null) o._i18nSrc = o.label;
+              o.label = t(o._i18nSrc);
+            }
+          }
         }
       }
     };

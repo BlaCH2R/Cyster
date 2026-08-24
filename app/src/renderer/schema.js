@@ -1,5 +1,6 @@
 // Field schemas for the properties panel, covering every documented StoryBoard field.
 (() => {
+  const $t = (s) => (window.SBi18n ? window.SBi18n.t(s) : s);
   const Easing = window.SBEngine.easing;
   const Colors = window.SBEngine.colors;
 
@@ -405,7 +406,7 @@
         row.appendChild(input);
       } else if (f.kind === 'select') {
         const select = document.createElement('select');
-        select.innerHTML = '<option value="">' + (multi ? '（多个数值）' : '(未设置)') + '</option>' +
+        select.innerHTML = '<option value="">' + (multi ? $t('（多个数值）') : $t('(未设置)')) + '</option>' +
           f.options.map((o) => `<option value="${o.value}">${o.label}</option>`).join('');
         const v = multi ? null : state[f.key];
         if (v != null) {
@@ -425,7 +426,7 @@
         input.type = 'text';
         input.inputMode = 'decimal';
         input.value = multi ? '' : (uv.value != null ? uv.value : '');
-        input.placeholder = multi ? '多个数值' : '未设置';
+        input.placeholder = multi ? $t('多个数值') : $t('未设置');
         const sel = document.createElement('select');
         sel.className = 'unit';
         const unitOptions = f.key === 'z' ? Z_UNIT_OPTIONS : UNIT_OPTIONS;
@@ -465,9 +466,9 @@
         input.value = colorToHex(c);
         const text = document.createElement('input');
         text.type = 'text';
-        if (unset) text.placeholder = '未设置';
+        if (unset) text.placeholder = $t('未设置');
         else text.value = c && typeof c === 'string' ? c : colorToHex(c);
-        if (multi) { text.value = ''; text.placeholder = '多个数值'; }
+        if (multi) { text.value = ''; text.placeholder = $t('多个数值'); }
         const apply = () => {
           const raw = text.value.trim();
           // 清空颜色代码：删除该字段（controller 不再输出对应 storyboard 字段）。
@@ -524,7 +525,7 @@
             chip.className = 'fill12-chip';
             const hex = curHex(i);
             chip.style.background = hex;
-            chip.title = KIND_NAMES[r] + ' · ' + (c === 0 ? '上行' : '下行') + '（点击修改颜色）';
+            chip.title = KIND_NAMES[r] + ' · ' + $t(c === 0 ? '上行' : '下行') + $t('（点击修改颜色）');
             chip.addEventListener('click', () => {
               // 未设置时从游戏默认色起步；已设置时保留其余项，始终输出完整 12 色，
               // 避免游戏端把缺失项补成黑色。
@@ -543,7 +544,7 @@
         const reset = document.createElement('button');
         reset.type = 'button';
         reset.className = 'fill12-reset';
-        reset.title = '重置为游戏默认颜色';
+        reset.title = $t('重置为游戏默认颜色');
         reset.textContent = '↺ 默认';
         reset.addEventListener('click', (e) => {
           e.preventDefault();
@@ -574,7 +575,7 @@
           wrap.appendChild(head);
           const ph = document.createElement('div');
           ph.className = 'help-text';
-          ph.textContent = '多个数值';
+          ph.textContent = $t('多个数值');
           wrap.appendChild(ph);
         } else {
           let pts = Array.isArray(state[f.key]) ? state[f.key] : [];
@@ -611,7 +612,7 @@
               const del = document.createElement('button');
               del.className = 'pos-del';
               del.innerHTML = svgIcon('close', 12);
-              del.title = '删除端点';
+              del.title = $t('删除端点');
               del.addEventListener('click', () => apply(pts.filter((_, j) => j !== i)));
               head.appendChild(del);
               rowEl.appendChild(head);
@@ -627,10 +628,10 @@
                 inp.inputMode = 'decimal';
                 inp.title = axis.toUpperCase();
                 inp.value = (uv.value != null && Number.isFinite(uv.value)) ? String(uv.value) : '';
-                inp.placeholder = '未设置';
+                inp.placeholder = $t('未设置');
                 const sel = document.createElement('select');
                 sel.className = 'unit';
-                sel.title = axis.toUpperCase() + ' 坐标系';
+                sel.title = axis.toUpperCase() + $t(' 坐标系');
                 sel.innerHTML = UNIT_OPTIONS.map((o) => `<option value="${o.value}">${o.label}</option>`).join('');
                 sel.value = uv.unit;
                 const commit = () => {
@@ -669,7 +670,7 @@
         const sel = document.createElement('select');
         const opts = window.SBApp && window.SBApp.assetOptions ? window.SBApp.assetOptions(f.filter) : [];
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-        sel.innerHTML = '<option value="">' + (multi ? '（多个数值）' : '(选择素材)') + '</option>' + opts.map((o) => {
+        sel.innerHTML = '<option value="">' + (multi ? $t('（多个数值）') : $t('(选择素材)')) + '</option>' + opts.map((o) => {
           const v = o && typeof o === 'object' ? o.value : o;
           const l = o && typeof o === 'object' ? o.label : o;
           return `<option value="${esc(v)}">${esc(l)}</option>`;
@@ -702,7 +703,7 @@
         const valUnset = !multi && (state[f.key] === undefined || state[f.key] === null || state[f.key] === '');
         input.placeholder = multi && (f.kind === 'num' || f.kind === 'int')
           ? '多个数值'
-          : (valUnset && f.def != null ? '未设置（' + f.def + '）' : (f.placeholder || '未设置'));
+          : (valUnset && f.def != null ? $t('未设置（') + f.def + $t('）') : (f.placeholder || $t('未设置')));
         input.addEventListener('change', () => {
           if (f.kind === 'num' || f.kind === 'int') {
             onChange(f.key, input.value === '' ? undefined : Number(input.value));
@@ -843,7 +844,7 @@
       head.className = 'ctrl-card-head';
       head.draggable = !multi;
       head.title = enabledOnly || ownerId == null
-        ? '拖动到时间轴/预览画面，把该选项块添加到对应时间'
+        ? $t('拖动到时间轴/预览画面，把该选项块添加到对应时间')
         : `该卡片已由轨道 ${ownerId} 启用`;
       head.addEventListener('dragstart', (e) => {
         // 实时统计面板中已占用卡片不能拖拽（不能重复启用到新轨道）。
@@ -880,7 +881,7 @@
       if (card.toggle) {
         const cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.title = card.label + ' 开关（关闭时写入显式 false）';
+        cb.title = card.label + $t(' 开关（关闭时写入显式 false）');
         const multiToggle = multi && state[card.toggle] === MULTI_VALUE;
         cb.checked = multiToggle ? false : !!state[card.toggle];
         cb.indeterminate = multiToggle;
@@ -944,7 +945,7 @@
       add.type = 'button';
       add.className = 'ctrl-card-add';
       add.textContent = '+ 添加controller属性';
-      add.title = '给该轨道分配一个或多个新的属性卡片';
+      add.title = $t('给该轨道分配一个或多个新的属性卡片');
       add.addEventListener('click', () => opts.onAddCard());
       container.appendChild(add);
     }

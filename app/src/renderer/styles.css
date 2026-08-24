@@ -1057,6 +1057,22 @@ body.welcome-mode #main, body.welcome-mode #timeline { display: none; }
 .welcome-foot a { color: var(--accent); text-decoration: none; }
 
 /* 欢迎页内置 Tips 小浮窗 */
+.welcome-lang {
+  position: fixed;
+  left: 26px;
+  bottom: 24px;
+  z-index: 30;
+}
+.welcome-lang select {
+  background: rgba(23, 30, 40, 0.94);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.welcome-lang select:hover { color: var(--text); }
 .welcome-tip {
   position: fixed;
   right: 26px;

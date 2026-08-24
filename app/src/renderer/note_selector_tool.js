@@ -48,7 +48,7 @@ function updateHit() {
     const sel = readSel();
     ids = Object.keys(sel).length ? hitIds(sel) : (ctx ? ctx.notes.map((n) => n.id) : []);
   }
-  $('#nsHit').textContent = ids.length + ' 个 note';
+  $('#nsHit').textContent = ids.length + $t(' 个 note');
   window.sbAPI.nsCall('highlight', [ids]);
 }
 
@@ -113,7 +113,7 @@ function renderList(ids) {
   $('#nsList').innerHTML = ids.length
     ? ids.map((id) => {
         const n = map.get(Number(id));
-        const type = n ? (LABELS[n.type] || ('类型 ' + n.type)) : '未知';
+        const type = n ? ($t(LABELS[n.type]) || ($t('类型 ') + n.type)) : $t('未知');
         return `<div class="ns-list-item"><span>#${id}</span><span class="ns-list-type">${type}</span></div>`;
       }).join('')
     : '<div class="ns-list-item" style="color:#888">（空列表）</div>';

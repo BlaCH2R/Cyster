@@ -63,6 +63,13 @@ app.whenReady().then(async () => {
     await js('window.SBi18n.setLanguage("en", true); return true;');
     await sleep(200);
     res.savedLang = await js('return window.sbAPI.getSettings().then((s) => (s || {}).language);');
+    res.welcomeSelectOptions = await js('return Array.from(document.querySelectorAll("#welcomeLang option")).map((o) => o.textContent);');
+
+    // UI 路径：通过欢迎页左下角下拉切换语言
+    await js('const sel = document.getElementById("welcomeLang"); sel.value = "zh-TW"; sel.dispatchEvent(new Event("change", { bubbles: true })); return true;');
+    await sleep(250);
+    res.uiTwFile = await menuText('文件');
+    res.uiLangSaved = await js('return window.sbAPI.getSettings().then((s) => (s || {}).language);');
 
     // 断言
     if (res.defaultLang !== 'zh-CN') throw new Error('默认语言异常: ' + res.defaultLang);
@@ -72,6 +79,12 @@ app.whenReady().then(async () => {
     if (res.twFile !== '檔案' || res.twNewProject !== '新建專案') throw new Error('繁体转换未生效: ' + JSON.stringify({ f: res.twFile, n: res.twNewProject }));
     if (res.twOpacity !== '不透明度') throw new Error('繁体 schema 未生效: ' + res.twOpacity);
     if (res.savedLang !== 'en') throw new Error('语言未持久化: ' + res.savedLang);
+    if (!res.welcomeSelectOptions.includes('简体中文 / Simplified Chinese') ||
+        !res.welcomeSelectOptions.includes('English / English')) {
+      throw new Error('欢迎页语言选项缺少双语标签: ' + JSON.stringify(res.welcomeSelectOptions));
+    }
+    if (res.uiTwFile !== '檔案') throw new Error('欢迎页下拉切换失效: ' + res.uiTwFile);
+    if (res.uiLangSaved !== 'zh-TW') throw new Error('欢迎页切换未持久化: ' + res.uiLangSaved);
     res.ok = true;
   } catch (e) {
     res.error = String(e && (e.stack || e.message) || e);

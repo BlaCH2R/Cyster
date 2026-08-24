@@ -1,5 +1,6 @@
 // Timeline component: ruler, lanes, clips, keyframes, playhead.
 (() => {
+  const $t = (s) => (window.SBi18n ? window.SBi18n.t(s) : s);
   const TYPE_LABELS = {
     sprite: 'Sprite', text: 'Text', video: 'Video', line: 'Line',
     controller: 'Controller', note_controller: 'Note Ctrl'
@@ -684,9 +685,9 @@
         const gHidden = this.opts.isGroupHidden && this.opts.isGroupHidden('stage');
         const gh = document.createElement('div');
         gh.className = 'group-header' + (collapsed ? ' collapsed' : '');
-        const eyeHtml = `<span class="gh-eye${gHidden ? ' off' : ''}" title="${gHidden ? '显示' : '隐藏'}整个分类">${svgIcon(gHidden ? 'eyeOff' : 'eye')}</span>`;
+        const eyeHtml = `<span class="gh-eye${gHidden ? ' off' : ''}" title="${$t(gHidden ? '显示' : '隐藏')}${$t('整个分类')}">${svgIcon(gHidden ? 'eyeOff' : 'eye')}</span>`;
         const stageLocked = this.opts.isCategoryLocked && this.opts.isCategoryLocked('stage');
-        const lockHtml = `<span class="gh-lock${stageLocked ? ' locked' : ''}" title="${stageLocked ? '解锁 Stage 全部对象' : '锁定 Stage 全部对象'}">${svgIcon(stageLocked ? 'lock' : 'unlock')}</span>`;
+        const lockHtml = `<span class="gh-lock${stageLocked ? ' locked' : ''}" title="${$t(stageLocked ? '解锁 Stage 全部对象' : '锁定 Stage 全部对象')}">${svgIcon(stageLocked ? 'lock' : 'unlock')}</span>`;
         gh.innerHTML = `<span class="gh-label">${eyeHtml}<span class="gh-text">Stage (${stageList.length})${collapsed ? svgIcon('chevronRight', 10, true) : svgIcon('chevronDown', 10, true)}</span>${lockHtml}</span><span class="gh-track"></span>`;
         gh.addEventListener('click', () => {
           this.collapsedGroups.stage = !this.collapsedGroups.stage;
@@ -730,7 +731,7 @@
               lab.className = 'lane-layer-sep-label';
               const layerLocked = this.opts.isCategoryLocked && this.opts.isCategoryLocked('layer:' + l);
               lab.innerHTML = 'Layer ' + l +
-                `<span class="sep-lock${layerLocked ? ' locked' : ''}" title="${layerLocked ? '解锁 Layer ' + l + ' 全部对象' : '锁定 Layer ' + l + ' 全部对象'}">${svgIcon(layerLocked ? 'lock' : 'unlock')}</span>`;
+                `<span class="sep-lock${layerLocked ? ' locked' : ''}" title="${$t(layerLocked ? '解锁 Layer ' : '锁定 Layer ')}${l}${$t(' 全部对象')}">${svgIcon(layerLocked ? 'lock' : 'unlock')}</span>`;
               lab.querySelector('.sep-lock').addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (this.opts.onToggleCategoryLock) this.opts.onToggleCategoryLock('layer:' + l);
@@ -759,7 +760,7 @@
         const hasLock = type === 'controller' || type === 'note_controller';
         const catLocked = hasLock && this.opts.isCategoryLocked && this.opts.isCategoryLocked(type);
         const lockHtml = hasLock
-          ? `<span class="gh-lock${catLocked ? ' locked' : ''}" title="${catLocked ? '解锁' : '锁定'} ${TYPE_LABELS[type]} 全部对象">${svgIcon(catLocked ? 'lock' : 'unlock')}</span>`
+          ? `<span class="gh-lock${catLocked ? ' locked' : ''}" title="${$t(catLocked ? '解锁' : '锁定')} ${TYPE_LABELS[type]} ${$t('全部对象')}">${svgIcon(catLocked ? 'lock' : 'unlock')}</span>`
           : '';
         gh.innerHTML = `<span class="gh-label"><span class="gh-text">${TYPE_LABELS[type]} (${list.length})${collapsed ? svgIcon('chevronRight', 10, true) : svgIcon('chevronDown', 10, true)}</span>${lockHtml}</span><span class="gh-track"></span>`;
         gh.addEventListener('click', () => {
@@ -831,17 +832,17 @@
       const name = objs.length === 1
         ? (obj.label || obj.id)
         : `${TYPE_LABELS[type] || type} × ${objs.length}`;
-      const eyeHtml = isCtrl ? '' : `<span class="lane-eye${allHidden ? ' off' : ''}" title="${allHidden ? '显示' : '隐藏'}对象">${svgIcon(allHidden ? 'eyeOff' : 'eye')}</span>`;
+      const eyeHtml = isCtrl ? '' : `<span class="lane-eye${allHidden ? ' off' : ''}" title="${$t(allHidden ? '显示' : '隐藏')}${$t('对象')}">${svgIcon(allHidden ? 'eyeOff' : 'eye')}</span>`;
       // controller 无可见性开关（不显示眼睛），但支持锁定/解锁。
       const locked = objs.every((o) => this.opts.isLocked && this.opts.isLocked(o.id));
-      const lockHtml = `<span class="lane-lock${locked ? ' locked' : ''}" title="${locked ? '解锁' : '锁定'}（锁定的对象在预览中不可直接点选）">${svgIcon(locked ? 'lock' : 'unlock')}</span>`;
+      const lockHtml = `<span class="lane-lock${locked ? ' locked' : ''}" title="${$t(locked ? '解锁' : '锁定')}${$t('（锁定的对象在预览中不可直接点选）')}">${svgIcon(locked ? 'lock' : 'unlock')}</span>`;
       // 轨道 order 数字显示在锁定按钮左侧（合并轨道显示该轨道的共享 order）；
       // controller / note_controller 没有层级概念，不显示。
       const showOrder = !isCtrl && objs[0].type !== 'note_controller' && objs[0].order != null;
       const orderVal = showOrder ? objs[0].order : null;
       const orderLocked = showOrder && this.lockedOrders.has(orderVal);
       const orderHtml = showOrder
-        ? `<span class="lane-order${orderLocked ? ' locked' : ''}" title="${orderLocked ? '解锁该 order 层级' : '点击锁定该 order 层级：锁定后该层级不参与整理轨道与切换轨道'}">${escapeHtml(String(orderVal))}</span>`
+        ? `<span class="lane-order${orderLocked ? ' locked' : ''}" title="${$t(orderLocked ? '解锁该 order 层级' : '点击锁定该 order 层级：锁定后该层级不参与整理轨道与切换轨道')}">${escapeHtml(String(orderVal))}</span>`
         : '';
       label.innerHTML = `${eyeHtml}<span class="nm">${escapeHtml(name)}</span>${orderHtml}${lockHtml}`;
       label.title = objs.map((o) => o.id).join(', ');
@@ -924,7 +925,7 @@
             cnt.textContent = o.noteCount + '×';
             clip.appendChild(cnt);
           }
-          clip.title = (o.lifecycle ? '生命周期: ' : '') + fmtTime(o.clipStart) + ' -> ' + fmtTime(o.clipEnd);
+          clip.title = (o.lifecycle ? $t('生命周期: ') : '') + fmtTime(o.clipStart) + ' -> ' + fmtTime(o.clipEnd);
           // Sprite / video clips show an asset thumbnail inside the block.
           if ((type === 'sprite' || type === 'video') && o.path) {
             const thumb = document.createElement('img');
@@ -1006,7 +1007,7 @@
           s.className = 'lane-seg';
           s.style.left = seg.start * this.pxPerSec + 'px';
           s.style.width = Math.max(2, (seg.end - seg.start) * this.pxPerSec) + 'px';
-          s.title = '生效区间 ' + fmtTime(seg.start) + ' -> ' + fmtTime(seg.end) + ' (' + seg.label + ')';
+          s.title = $t('生效区间 ') + fmtTime(seg.start) + ' -> ' + fmtTime(seg.end) + ' (' + seg.label + ')';
           s.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
             e.stopPropagation();

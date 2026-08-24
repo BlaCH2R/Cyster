@@ -1,4 +1,5 @@
 (() => {
+  const __t = (s) => (window.SBi18n ? window.SBi18n.t(s) : s);
   const SB = window.SBEngine;
   const Schema = window.SBSchema;
   const TimelineMod = window.SBTimeline;
@@ -556,7 +557,7 @@
       }
       const el = document.createElement('div');
       el.className = 'cm-item' + (it.danger ? ' danger' : '');
-      el.textContent = it.label;
+      el.textContent = __t(it.label);
       el.addEventListener('click', () => {
         hideContextMenu();
         if (it.action) it.action();
@@ -667,7 +668,7 @@
           state.projectConfig = res.config || state.projectConfig;
         }
       } catch (e) {
-        toast('分配 StoryBoard 到该难度失败: ' + e.message, true);
+        toast(__t('分配 StoryBoard 到该难度失败: ') + e.message, true);
       }
     }
     state.chartPath = chart.path;
@@ -679,7 +680,7 @@
       try {
         state.chart = new SB.chart.Chart(chart.content, { screenRatio: currentPreviewRatio() });
       } catch (e) {
-        toast('谱面解析失败: ' + e.message, true);
+        toast(__t('谱面解析失败: ') + e.message, true);
       }
       if (isImportLevel) {
         // Importing a .cytoidlevel: read the picked difficulty's StoryBoard
@@ -749,14 +750,14 @@
     setupAudio();
     $('#previewEmpty').style.display = 'none';
     $('#previewHint').style.display = 'block';
-    $('#previewHint').textContent = '模拟实时预览·实际效果以cytoid原生为准';
+    $('#previewHint').textContent = __t('模拟实时预览·实际效果以cytoid原生为准');
     const sbCount = state.storyboard
       ? Object.values(TYPE_GROUPS).reduce((n, g) => n + ((state.storyboard[g] || []).length), 0)
       : 0;
     const projName = state.projectConfig ? state.projectConfig.name : '';
     const levelTitle = state.level.title || 'Untitled';
     const shownTitle = projName && projName === levelTitle ? projName : (projName ? `${projName} · ${levelTitle}` : levelTitle);
-    $('#statusBar').textContent = `${shownTitle} · 对象 ${sbCount} 个 · ${state.levelDir}`;
+    $('#statusBar').textContent = `${__t(shownTitle)} · ${__t('对象')} ${sbCount} · ${state.levelDir}`;
     state.dirty = false;
     setTime(0, false);
     refreshAll();
@@ -779,7 +780,7 @@
     if (!picked || !picked.chart) return;
     await applyPickedChart(picked.chart, picked.readStoryboard === true, false);
     updateSwitchDifficultyState();
-    toast('已切换到难度: ' + (picked.chart.type || picked.chart.path));
+    toast(__t('已切换到难度: ') + (picked.chart.type || picked.chart.path));
   }
 
   // Enable/disable the "切换难度" menu item (only when more than one chart).
@@ -820,7 +821,7 @@
         resolve(v);
       };
       const items = charts.map((c, i) => {
-        const label = [c.type, c.name, c.difficulty != null ? '难度 ' + c.difficulty : '']
+        const label = [c.type, c.name, c.difficulty != null ? __t('难度 ') + c.difficulty : '']
           .filter(Boolean)
           .join(' · ') + (c.musicOverride ? '（独立音乐）' : '');
         // Difficulties that ship with a storyboard get a right-aligned toggle
@@ -871,7 +872,7 @@
       renderTimeline();
       toast('音乐已就绪（' + player.duration.toFixed(1) + 's）');
     } catch (e) {
-      toast('音乐加载失败: ' + e.message, true);
+      toast(__t('音乐加载失败: ') + e.message, true);
     }
   }
 
@@ -1104,7 +1105,7 @@
     if (!imgs.length) {
       const empty = document.createElement('div');
       empty.className = 'empty-panel';
-      empty.textContent = '打开项目后，可通过“添加素材”把图片/视频加入素材库';
+      empty.textContent = __t('打开项目后，可通过“添加素材”把图片/视频加入素材库');
       el.appendChild(empty);
       return;
     }
@@ -1138,7 +1139,7 @@
         sz.textContent = (f.size / 1024).toFixed(0) + 'KB';
         item.appendChild(sz);
         item.addEventListener('dblclick', () => addSpriteFromAsset(f.name));
-        item.title = '双击创建 Sprite';
+        item.title = __t('双击创建 Sprite');
         item.draggable = true;
         item.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/asset-name', f.name);
@@ -1154,7 +1155,7 @@
               state.manualImages = (state.manualImages || []).filter((n) => n !== f.name);
               persistProjectState();
               renderAssetList();
-              toast('已从素材库移除: ' + f.name);
+              toast(__t('已从素材库移除: ') + f.name);
             } }
           ]);
         });
@@ -1185,7 +1186,7 @@
     try {
       const name = await window.sbAPI.levelAddAsset({ levelDir: state.levelDir, filePath: p });
       if (state.manualImages.includes(name)) {
-        toast('该素材已在素材库中: ' + assetBasename(name));
+        toast(__t('该素材已在素材库中: ') + assetBasename(name));
         return;
       }
       state.manualImages.push(name);
@@ -1196,9 +1197,9 @@
       }
       persistProjectState();
       renderAssetList();
-      toast('已添加素材: ' + assetBasename(name));
+      toast(__t('已添加素材: ') + assetBasename(name));
     } catch (e) {
-      toast('添加素材失败: ' + e.message, true);
+      toast(__t('添加素材失败: ') + e.message, true);
     }
   }
 
@@ -1218,7 +1219,7 @@
     if (!el) return;
     el.innerHTML = '';
     if (!state.storyboard) {
-      el.innerHTML = '<div class="empty-panel">打开项目后可在此添加对象</div>';
+      el.innerHTML = __t('<div class="empty-panel">打开项目后可在此添加对象</div>');
       return;
     }
     for (const [key, label] of OA_GROUPS) {
@@ -1228,8 +1229,8 @@
       const gHidden = !isCtrl && !isGroupVisible(key);
       const row = document.createElement('div');
       row.className = 'oa-row' + (collapsed ? ' collapsed' : '');
-      const eyeHtml = isCtrl ? '' : `<span class="oa-eye${gHidden ? ' off' : ''}" title="${gHidden ? '显示' : '隐藏'}整个分类">${svgIcon(gHidden ? 'eyeOff' : 'eye')}</span>`;
-      row.innerHTML = `<span class="oa-caret">${collapsed ? svgIcon('chevronRight', 10) : svgIcon('chevronDown', 10)}</span>${eyeHtml}<span class="oa-name">${escapeHtml(label)}</span><span class="oa-count">${list.length}</span><button class="oa-add" title="添加 ${escapeHtml(label)}">${svgIcon('plus', 12)}</button>`;
+      const eyeHtml = isCtrl ? '' : `<span class="oa-eye${gHidden ? ' off' : ''}" title="${__t(gHidden ? '显示' : '隐藏')}${__t('整个分类')}">${svgIcon(gHidden ? 'eyeOff' : 'eye')}</span>`;
+      row.innerHTML = `<span class="oa-caret">${collapsed ? svgIcon('chevronRight', 10) : svgIcon('chevronDown', 10)}</span>${eyeHtml}<span class="oa-name">${escapeHtml(__t(label))}</span><span class="oa-count">${list.length}</span><button class="oa-add" title="${__t('添加')} ${escapeHtml(__t(label))}">${svgIcon('plus', 12)}</button>`;
       row.addEventListener('click', (e) => {
         if (e.target.closest('.oa-add') || e.target.closest('.oa-eye')) return;
         state.tagCollapsed = state.tagCollapsed || {};
@@ -1253,7 +1254,7 @@
       const sub = document.createElement('div');
       sub.className = 'oa-items';
       if (!list.length) {
-        sub.innerHTML = '<div class="oa-empty">（空）</div>';
+        sub.innerHTML = __t('<div class="oa-empty">（空）</div>');
       } else {
         for (const obj of list) {
           const it = document.createElement('div');
@@ -1323,9 +1324,9 @@
       state.dirty = true;
       persistProjectState();
       refreshAll();
-      toast('已重新连接: ' + name);
+      toast(__t('已重新连接: ') + name);
     } catch (e) {
-      toast('重新连接失败: ' + e.message, true);
+      toast(__t('重新连接失败: ') + e.message, true);
     }
   }
 
@@ -1369,7 +1370,7 @@
     state.selectedObjId = id;
     state.selectedKeyIdx = -1;
     refreshAll();
-    toast('已添加 ' + (isVideo ? 'Video' : 'Sprite') + ': ' + name);
+    toast(__t('已添加 ') + (isVideo ? 'Video' : 'Sprite') + ': ' + name);
   }
 
   // Drop a library asset onto the preview at a position, creating a sprite
@@ -1430,7 +1431,7 @@
     state.selectedKeyIdx = -1;
     state.dirty = true;
     refreshAll();
-    toast('已创建 ' + (isVideo ? 'Video' : 'Sprite') + '（3 秒）: ' + name);
+    toast(__t('已创建 ') + (isVideo ? 'Video' : 'Sprite') + __t('（3 秒）: ') + name);
   }
 
   function uniqueId(type) {
@@ -1463,11 +1464,11 @@
     if (!el) return; // object tree was merged into the timeline name column
     el.innerHTML = '';
     if (!state.storyboard) {
-      el.innerHTML = '<div class="empty-panel">尚未打开 StoryBoard</div>';
+      el.innerHTML = __t('<div class="empty-panel">尚未打开 StoryBoard</div>');
       return;
     }
     const groups = ['sprites', 'texts', 'videos', 'lines', 'controllers', 'note_controllers'];
-    const labels = { sprites: 'Sprites 精灵', texts: 'Texts 文本', videos: 'Videos 视频', lines: 'Lines 线段', controllers: 'Controllers 控制器', note_controllers: 'Note Controllers 音符控制器' };
+    const labels = { sprites: __t('Sprites 精灵'), texts: __t('Texts 文本'), videos: __t('Videos 视频'), lines: __t('Lines 线段'), controllers: __t('Controllers 控制器'), note_controllers: __t('Note Controllers 音符控制器') };
     for (const g of groups) {
       const list = state.storyboard[g] || [];
       const h = document.createElement('div');
@@ -1510,7 +1511,7 @@
         if (state.objHidden) delete state.objHidden[id];
         if (state.selectedObjId === id) { state.selectedObjId = null; state.selectedKeyIdx = null; }
         refreshAll();
-        toast('已删除对象: ' + id);
+        toast(__t('已删除对象: ') + id);
         return;
       }
     }
@@ -3953,9 +3954,9 @@
     state.selectedKfs = [];
     refreshAll();
     const parts = [];
-    if (objectDeletes.length) parts.push(objectDeletes.length + ' 个对象');
-    if (kfCount) parts.push(kfCount + ' 个关键帧');
-    if (parts.length) toast('已删除 ' + parts.join(' / '));
+    if (objectDeletes.length) parts.push(objectDeletes.length + __t(' 个对象'));
+    if (kfCount) parts.push(kfCount + __t(' 个关键帧'));
+    if (parts.length) toast(__t('已删除 ') + parts.join(' / '));
   }
 
   // Copy the selection. relative=true anchors the group at the playhead
@@ -4014,7 +4015,7 @@
     state.selectedObjId = clones[0] || null;
     state.selectedKeyIdx = -1;
     refreshAll();
-    toast('已复制 ' + clones.length + ' 个对象（' + (relative ? '相对播放头' : '绝对时间') + '）');
+    toast(__t('已复制 ') + clones.length + __t(' 个对象（') + (relative ? __t('相对播放头') : __t('绝对时间')) + __t('）'));
   }
 
   // 对象剪贴板：Ctrl+C 复制选中对象，Ctrl+V 粘贴到当前播放头。
@@ -4032,7 +4033,7 @@
     if (!items.length) { toast('请先选择对象', true); return; }
     state.objClipboard = items;
     state.kfClipboard = []; // 对象剪贴板与关键帧剪贴板互斥
-    toast('已复制 ' + items.length + ' 个对象');
+    toast(__t('已复制 ') + items.length + __t(' 个对象'));
   }
 
   function pasteObjectsAtPlayhead() {
@@ -4072,7 +4073,7 @@
     state.selectedObjId = clones[0] || null;
     state.selectedKeyIdx = -1;
     refreshAll();
-    toast('已粘贴 ' + clones.length + ' 个对象到播放头');
+    toast(__t('已粘贴 ') + clones.length + __t(' 个对象到播放头'));
   }
 
   // ---------------------------------------------------------------
@@ -4254,7 +4255,7 @@
     state.selectedKeyIdx = -1;
     state.dirty = true;
     dirtyAndRefresh();
-    toast('已删除 ' + (group.numeric ? '该时间点' : '该表达式') + ' 的全部关键帧');
+    toast(__t('已删除 ') + (group.numeric ? __t('该时间点') : __t('该表达式')) + __t(' 的全部关键帧'));
   }
 
   // ---------------------------------------------------------------
@@ -4476,10 +4477,10 @@
   }
 
   function categoryLockLabel(kind) {
-    if (kind === 'stage') return 'Stage 全部对象';
-    if (kind === 'controller') return 'Controller 全部对象';
-    if (kind === 'note_controller') return 'Note Ctrl 全部对象';
-    if (kind && kind.indexOf('layer:') === 0) return 'Layer ' + kind.slice(6) + ' 全部对象';
+    if (kind === 'stage') return __t('Stage 全部对象');
+    if (kind === 'controller') return __t('Controller 全部对象');
+    if (kind === 'note_controller') return __t('Note Ctrl 全部对象');
+    if (kind && kind.indexOf('layer:') === 0) return 'Layer ' + kind.slice(6) + __t(' 全部对象');
     return kind;
   }
 
@@ -4495,7 +4496,7 @@
     }
     persistProjectState();
     refreshAll();
-    toast(allLocked ? '已批量解锁' : '已批量锁定 ' + categoryLockLabel(kind));
+    toast(allLocked ? __t('已批量解锁') : __t('已批量锁定 ') + categoryLockLabel(kind));
   }
 
   // R 键切换预览选择层级（Note <-> Stage）。
@@ -4503,7 +4504,7 @@
     state.pickMode = state.pickMode === 'note' ? 'stage' : 'note';
     const sel = $('#pickMode');
     if (sel) sel.value = state.pickMode;
-    toast('选择层级: ' + (state.pickMode === 'note' ? 'Note' : 'Stage'));
+    toast(__t('选择层级: ') + (state.pickMode === 'note' ? 'Note' : 'Stage'));
   }
 
   // 点击合并轨道空白处：不清空也不自动选择第一个对象，而是在属性界面显示该
@@ -4971,18 +4972,18 @@
           `<span>#${id}</span><span style="color:var(--accent)">${type}</span></div>`;
       }).join('');
       body.innerHTML =
-        `<div class="help-text">手动列表模式：选择器将以 <b>[]数组</b> 形式逐个列出选中的 note（共 <b>${s.arrayIds.length}</b> 个）。` +
-        `拾取模式开启后点击预览中的 note 即可继续添加/取消；点击“应用”后生效。</div>` +
-        `<div class="field"><label>已选 note</label><div style="max-height:300px;overflow-y:auto;flex:1;border:1px solid #333;border-radius:4px;padding:4px;font-size:12px">` +
-        (noteRows || '<span style="color:#888">（空列表）</span>') + `</div></div>` +
-        `<div class="field"><label>合并时间块</label><input type="checkbox" id="nselMerge"${(!noteSelectorTarget || (nsDraft && nsDraft.merge)) ? ' checked' : ''}></div>` +
-        `<div class="btn-row"><button class="mini-btn" id="nselPick">${state.notePickerActive ? '停止拾取' : '手动拾取note'}</button>` +
-        `<button class="mini-btn" id="nselApply">应用</button>` +
-        `<button class="mini-btn" id="nselToFilter">切换至筛选样式并清空列表</button></div>`;
+        `<div class="help-text">${__t('手动列表模式：选择器将以 <b>[]数组</b> 形式逐个列出选中的 note（共 <b>')}${s.arrayIds.length}${__t('</b> 个）。')}` +
+        `${__t('拾取模式开启后点击预览中的 note 即可继续添加/取消；点击“应用”后生效。')}</div>` +
+        `<div class="field"><label>${__t('已选 note')}</label><div style="max-height:300px;overflow-y:auto;flex:1;border:1px solid #333;border-radius:4px;padding:4px;font-size:12px">` +
+        (noteRows || __t('<span style="color:#888">（空列表）</span>')) + `</div></div>` +
+        `<div class="field"><label>${__t('合并时间块')}</label><input type="checkbox" id="nselMerge"${(!noteSelectorTarget || (nsDraft && nsDraft.merge)) ? ' checked' : ''}></div>` +
+        `<div class="btn-row"><button class="mini-btn" id="nselPick">${__t(state.notePickerActive ? '停止拾取' : '手动拾取note')}</button>` +
+        `<button class="mini-btn" id="nselApply">${__t('应用')}</button>` +
+        `<button class="mini-btn" id="nselToFilter">${__t('切换至筛选样式并清空列表')}</button></div>`;
       body.querySelector('#nselPick').addEventListener('click', () => {
         state.notePickerActive = !state.notePickerActive;
         renderNoteSelectorEditor(body);
-        toast(state.notePickerActive ? '拾取模式：点击预览画面中的 note 加入选择器' : '已退出拾取模式');
+        toast(state.notePickerActive ? __t('拾取模式：点击预览画面中的 note 加入选择器') : __t('已退出拾取模式'));
       });
       body.querySelector('#nselApply').addEventListener('click', applyNoteSelectorFromEditor);
       body.querySelector('#nselToFilter').addEventListener('click', () => {
@@ -5005,11 +5006,11 @@
       `<input type="checkbox" class="nsel-type" data-type="${t}"${s.types[t] ? ' checked' : ''}>${NOTE_TYPE_LABELS[t]}</label>`).join('');
     body.innerHTML =
       `<div class="help-text">${state.notePickerActive
-        ? '<b style="color:var(--accent)">拾取模式：点击预览画面中的 note 加入选择器。</b>'
-        : '勾选类型/填写范围即可实时统计命中 note 数量；'}` +
+        ? __t('<b style="color:var(--accent)">拾取模式：点击预览画面中的 note 加入选择器。</b>')
+        : __t('勾选类型/填写范围即可实时统计命中 note 数量；')}` +
       (noteSelectorTarget
-        ? `当前绑定控制器 <b>${escapeHtml(noteSelectorTarget.id)}</b>，应用时直接写入其 note 字段。`
-        : '应用时写入当前选中的 note 集合（同一选择器控制器或新建）。') +
+        ? __t('当前绑定控制器 <b>') + escapeHtml(noteSelectorTarget.id) + __t('</b>，应用时直接写入其 note 字段。')
+        : __t('应用时写入当前选中的 note 集合（同一选择器控制器或新建）。')) +
       `</div>` +
       `<div class="field"><label>类型</label><div style="display:flex;flex-wrap:wrap;gap:2px 8px;flex:1">${typeHtml}</div></div>` +
       `<div class="field"><label>ID 从</label><input type="number" id="nselStart" value="${s.start != null ? s.start : ''}" placeholder="不限"></div>` +
@@ -5137,7 +5138,7 @@
       nsDraft = { note: JSON.parse(JSON.stringify(sel != null ? sel : {})), merge };
       state.dirty = true;
       dirtyAndRefresh();
-      toast('已更新 note 选择器: ' + JSON.stringify(sel));
+      toast(__t('已更新 note 选择器: ') + JSON.stringify(sel));
       return;
     }
     const noteIds = (state.selectedIds || [])
@@ -5945,11 +5946,11 @@
                 : Schema.MULTI_VALUE;
             }
             body.innerHTML =
-              `<div class="empty-panel">已选择 ${count} 个关键帧（同一条 controller 轨道）</div>` +
-              `<div class="prop-section"><h4>对象 · ${escapeHtml(schema.label)}（关键帧卡片）</h4>` +
+              `<div class="empty-panel">${__t('已选择')} ${count} ${__t('个关键帧')}${__t('（同一条 controller 轨道）')}</div>` +
+              `<div class="prop-section"><h4>${__t('对象 · ')}${escapeHtml(schema.label)}${__t('（关键帧卡片）')}</h4>` +
               `<div id="stateForm" class="kf-form"></div></div>` +
-              `<div class="prop-section"><div class="state-form-head"><h4>状态属性</h4>` +
-              `<span class="state-common"><label>缓动 <select id="multiKfEasing"></select></label></span>` +
+              `<div class="prop-section"><div class="state-form-head"><h4>${__t('状态属性')}</h4>` +
+              `<span class="state-common"><label>${__t('缓动')} <select id="multiKfEasing"></select></label></span>` +
               `</div></div>`;
             const formEl = body.querySelector('#stateForm');
             const onStateChange = (key, value) => {
@@ -5992,9 +5993,9 @@
             }
           } else {
             body.innerHTML =
-              `<div class="empty-panel">已选择 ${count} 个关键帧（来自 ${rawIds.size} 条 controller 轨道）</div>` +
-              `<div class="prop-section"><h4>Controller 关键帧多选</h4>` +
-              `<div class="help-text">跨轨道的 controller 关键帧仅支持浏览数量；请在单条 controller 轨道上选择关键帧以编辑属性卡片。</div></div>`;
+              `<div class="empty-panel">${__t('已选择')} ${count} ${__t('个关键帧')}${__t('（来自 ')}${rawIds.size}${__t(' 条 controller 轨道）')}</div>` +
+              `<div class="prop-section"><h4>${__t('Controller 关键帧多选')}</h4>` +
+              `<div class="help-text">${__t('跨轨道的 controller 关键帧仅支持浏览数量；请在单条 controller 轨道上选择关键帧以编辑属性卡片。')}</div></div>`;
           }
           return;
         }
@@ -6034,8 +6035,8 @@
           }
         }
         body.innerHTML =
-          `<div class="empty-panel">已选择 ${kfsSel.length || targetStates.length} 个${kfsSel.length ? '关键帧' : ' ' + label}</div>` +
-          `<div class="prop-section"><h4>对象 · ${escapeHtml(schema.label)}（多选编辑）</h4>` +
+          `<div class="empty-panel">${__t('已选择')} ${kfsSel.length || targetStates.length} ${kfsSel.length ? __t('关键帧') : ' ' + __t(label)}</div>` +
+          `<div class="prop-section"><h4>${__t('对象 · ')}${escapeHtml(schema.label)}${__t('（多选编辑）')}</h4>` +
           noteRowHtml +
           parentTargetHtml +
           batchTimeHtml +
@@ -6053,7 +6054,7 @@
               const nid = typeof t.obj.note === 'number' ? t.obj.note : null;
               if (resolveNoteTimeToken(raw, nid) == null) { ok = false; break; }
             }
-            if (!ok) { toast('无法解析时间: ' + raw, true); renderProperties(); return; }
+            if (!ok) { toast(__t('无法解析时间: ') + raw, true); renderProperties(); return; }
             const numeric = /^-?\d+(\.\d+)?$/.test(raw);
             const stored = numeric ? Math.round(parseFloat(raw) * 1000) / 1000 : raw;
             const objs = new Set();
@@ -6163,12 +6164,12 @@
         });
         return;
       }
-      body.innerHTML = `<div class="empty-panel">已选择 ${kfsSel.length || stageSel.length} 个${kfsSel.length ? '关键帧' : ' ' + label}</div>`;
+      body.innerHTML = `<div class="empty-panel">${__t('已选择')} ${kfsSel.length || stageSel.length} ${kfsSel.length ? __t('关键帧') : ' ' + __t(label)}</div>`;
       return;
     }
     const entry = state.selectedObjId ? findObjectEntry(state.selectedObjId) : null;
     if (!entry) {
-      body.innerHTML = '<div class="empty-panel">在左侧或时间轴中选择对象<br/>在时间轴中点击关键帧可编辑该帧属性</div>';
+      body.innerHTML = __t('<div class="empty-panel">在左侧或时间轴中选择对象<br/>在时间轴中点击关键帧可编辑该帧属性</div>');
       return;
     }
     const { group, type, obj } = entry;
@@ -6186,10 +6187,10 @@
     const stateJson = interpolated
       ? (interpolatedStateFor(obj, type, preview.time) || baseStateJson)
       : baseStateJson;
-    if (!stateJson) { body.innerHTML = '<div class="empty-panel">该关键帧不存在</div>'; return; }
+    if (!stateJson) { body.innerHTML = __t('<div class="empty-panel">该关键帧不存在</div>'); return; }
 
     let html = '';
-    html += `<div class="prop-section"><h4>对象 · ${schema.label}</h4>`;
+    html += `<div class="prop-section"><h4>${__t('对象 · ')}${schema.label}</h4>`;
     // note 选择器对象（任意类型）：顶部按钮——编辑此note选择器（呼出编辑浮窗）；
     // 未合并状态下额外提供“合并选择器时间块”一键合并。
     if (type === 'note_controller' || (obj.note && typeof obj.note === 'object')) {
@@ -6232,7 +6233,7 @@
     }
     html += '</div>';
 
-    html += `<div class="prop-section"><h4 class="kf-toggle" id="kfToggle" title="点击折叠/展开">${kfCollapsed ? svgIcon('chevronRight', 11, true) : svgIcon('chevronDown', 11, true)}关键帧 (${isInitial ? 'K0' : 'K' + (state.selectedKeyIdx + 1)})</h4>`;
+    html += `<div class="prop-section"><h4 class="kf-toggle" id="kfToggle" title="${__t('点击折叠/展开')}">${kfCollapsed ? svgIcon('chevronRight', 11, true) : svgIcon('chevronDown', 11, true)}${__t('关键帧')} (${isInitial ? 'K0' : 'K' + (state.selectedKeyIdx + 1)})</h4>`;
     html += `<div class="key-list" id="keyList"${kfCollapsed ? ' style="display:none"' : ''}>`;
     // 关键帧时间显示：对象自身带 note（如 note_controller 的 time:"start:$note"）
     // 时按该 note 解析，避免 $note 表达式显示成 0.000；解析不出时显示原始表达式。
@@ -6265,12 +6266,12 @@
           const st = idx >= 0 ? (obj.states || [])[idx] : obj;
           html += `<div class="key-item${sel}${st && st.destroy ? ' destroy' : ''}" data-kf-exp="${escapeHtml(g.id)}">` +
             `<span class="klabel">${label}</span><span class="kt">${fmtTime(g.time)}</span>` +
-            `<span class="del" title="删除该时间点的全部关键帧">${svgIcon('close', 12)}</span></div>`;
+            `<span class="del" title="${__t('删除该时间点的全部关键帧')}">${svgIcon('close', 12)}</span></div>`;
         } else {
           const sel = state.selectedKfExpression === g.token ? ' selected' : '';
           html += `<div class="key-item${sel}" data-kf-exp="${escapeHtml(g.token)}">` +
             `<span class="klabel">表达式</span><span class="kt">${escapeHtml(g.token)}</span>` +
-            `<span class="del" title="删除该表达式的全部关键帧">${svgIcon('close', 12)}</span></div>`;
+            `<span class="del" title="${__t('删除该表达式的全部关键帧')}">${svgIcon('close', 12)}</span></div>`;
         }
       }
     } else {
@@ -6292,9 +6293,9 @@
         `</span>`
       : '';
     const interpHint = interpolated
-      ? '<div class="help-text interp-hint">播放头不在关键帧上：以下为当前时刻的插值（只读）</div>'
+      ? __t('<div class="help-text interp-hint">播放头不在关键帧上：以下为当前时刻的插值（只读）</div>')
       : '';
-    html += `<div class="prop-section"><div class="state-form-head"><h4>状态属性</h4>${commonRow}</div>${interpHint}<div id="stateForm" class="kf-form"></div></div>`;
+    html += `<div class="prop-section"><div class="state-form-head"><h4>${__t('状态属性')}</h4>${commonRow}</div>${interpHint}<div id="stateForm" class="kf-form"></div></div>`;
     body.innerHTML = html;
     const editSelBtn = $('#btnEditThisSelector');
     if (editSelBtn) editSelBtn.addEventListener('click', () => openNoteSelectorEditor(obj));
@@ -6349,7 +6350,7 @@
             if (parent) {
               selectObject(parent.id, null);
             } else {
-              toast('未找到父对象: ' + pid, true);
+              toast(__t('未找到父对象: ') + pid, true);
             }
           }
         });
@@ -6535,7 +6536,7 @@
         }
         // 合规性检查：无法解析的 note 表达式（时间轴上无法创建关键帧）拒绝输入。
         if (!validTimeToken(value, obj)) {
-          toast('无法解析时间表达式: ' + String(value), true);
+          toast(__t('无法解析时间表达式: ') + String(value), true);
           renderProperties();
           return;
         }
@@ -6679,8 +6680,8 @@
       renderProperties();
       return;
     }
-    let html = `<div class="empty-panel">已选择轨道 · ${objs.length} 个对象</div>` +
-      `<div class="prop-section"><h4>轨道对象统计</h4>`;
+    let html = `<div class="empty-panel">${__t('已选择轨道 · ')}${objs.length} ${__t('个对象')}</div>` +
+      `<div class="prop-section"><h4>${__t('轨道对象统计')}</h4>`;
     for (const o of objs) {
       const entry = findObjectEntry(o.id);
       const type = entry ? entry.type : o.type;
@@ -6850,15 +6851,15 @@
     kfEntries.sort((a, b) => kfTime(a) - kfTime(b));
     const kfHtml = kfEntries.map((e) =>
       `<div class="key-item" data-kf="${e.index}"><span class="klabel">${e.label}</span><span class="kt">${kfTimeText(e.token)}</span>` +
-      (e.index >= 0 ? `<span class="del" title="删除该关键帧">${svgIcon('close', 12)}</span>` : '') + `</div>`).join('');
-    let html = `<div class="prop-section"><h4>对象 · ${schema.label}（单独编辑）</h4>`;
-    html += `<div class="help-text merged-note-hint">该note位于合并时间块 <b>${escapeHtml(String(blockObj.id))}</b> 中，` +
-      `对其进行单独修改会导致其独立；若要进行整体修改请从轨道中点击进入该note选择器的整体属性编辑</div>`;
+      (e.index >= 0 ? `<span class="del" title="${__t('删除该关键帧')}">${svgIcon('close', 12)}</span>` : '') + `</div>`).join('');
+    let html = `<div class="prop-section"><h4>${__t('对象 · ')}${schema.label}${__t('（单独编辑）')}</h4>`;
+    html += __t('<div class="help-text merged-note-hint">该note位于合并时间块 <b>') + escapeHtml(String(blockObj.id)) +
+      __t('</b> 中，对其进行单独修改会导致其独立；若要进行整体修改请从轨道中点击进入该note选择器的整体属性编辑</div>');
     html += field('关联 Note', noteId, false);
-    html += `<div class="prop-section"><h4>合并时间块分配给该 note 的关键帧</h4><div class="key-list" id="keyList">${kfHtml}</div>` +
-      `<div class="btn-row"><button class="mini-btn" id="btnAddKf">${svgIcon('plus', 12, true)}在播放头添加关键帧</button></div></div>`;
-    html += `<div class="prop-section"><h4>状态属性</h4><div id="stateForm" class="kf-form"></div></div>`;
-    html += `<div class="btn-row"><button class="mini-btn" id="btnOpenMergedBlock">进入合并时间块整体属性编辑</button></div>`;
+    html += `<div class="prop-section"><h4>${__t('合并时间块分配给该 note 的关键帧')}</h4><div class="key-list" id="keyList">${kfHtml}</div>` +
+      `<div class="btn-row"><button class="mini-btn" id="btnAddKf">${svgIcon('plus', 12, true)}${__t('在播放头添加关键帧')}</button></div></div>`;
+    html += `<div class="prop-section"><h4>${__t('状态属性')}</h4><div id="stateForm" class="kf-form"></div></div>`;
+    html += `<div class="btn-row"><button class="mini-btn" id="btnOpenMergedBlock">${__t('进入合并时间块整体属性编辑')}</button></div>`;
     body.innerHTML = html;
 
     const refreshAfterAction = () => {
@@ -6943,10 +6944,10 @@
       // 而不是 note 的 start_time（否则时间块出现在时间轴别处）。
       time: preview.time != null ? preview.time : (note ? note.start_time : 0)
     };
-    let html = `<div class="prop-section"><h4>对象 · ${schema.label}（待创建）</h4>`;
+    let html = `<div class="prop-section"><h4>${__t('对象 · ')}${schema.label}${__t('（待创建）')}</h4>`;
     html += field('关联 Note', noteId, false);
-    html += `<div class="help-text">该 Note 还没有 Note Controller。修改下面任意属性后将自动在当前时间创建并生成对象。</div>`;
-    html += `<div class="prop-section"><h4>状态属性</h4><div id="stateForm" class="kf-form"></div></div>`;
+    html += `<div class="help-text">${__t('该 Note 还没有 Note Controller。修改下面任意属性后将自动在当前时间创建并生成对象。')}</div>`;
+    html += `<div class="prop-section"><h4>${__t('状态属性')}</h4><div id="stateForm" class="kf-form"></div></div>`;
     body.innerHTML = html;
 
     const formEl = $('#stateForm');
@@ -7034,10 +7035,10 @@
     const timeStr = timeSame && timeVals[0] != null ? String(timeVals[0]) : '';
 
     body.innerHTML =
-      `<div class="empty-panel">已选择 ${noteIds.length} 个 Note</div>` +
-      `<div class="prop-section"><h4>对象 · ${escapeHtml(schema.label)}（多选编辑）</h4>` +
-      `<div class="field"><label>关联 Note</label><span style="flex:1;color:var(--text)">${escapeHtml(noteIds.join(', '))}（共 ${noteIds.length}）</span></div>` +
-      `<div class="field"><label>时间 (秒)</label><input id="ncMultiTime" type="text" value="${escapeHtml(timeStr)}" placeholder="支持$note表达式"></div>` +
+      `<div class="empty-panel">${__t('已选择')} ${noteIds.length} ${__t('个 Note')}</div>` +
+      `<div class="prop-section"><h4>${__t('对象 · ')}${escapeHtml(schema.label)}${__t('（多选编辑）')}</h4>` +
+      `<div class="field"><label>${__t('关联 Note')}</label><span style="flex:1;color:var(--text)">${escapeHtml(noteIds.join(', '))}${__t('（共 ')}${noteIds.length}${__t('）')}</span></div>` +
+      `<div class="field"><label>${__t('时间 (秒)')}</label><input id="ncMultiTime" type="text" value="${escapeHtml(timeStr)}" placeholder="${__t('支持$note表达式')}"></div>` +
       `<div id="ncMultiForm" class="kf-form"></div></div>`;
 
     const timeInput = $('#ncMultiTime');
@@ -7051,7 +7052,7 @@
       for (const t of targets) {
         if (resolveNoteTimeToken(raw, t.nid) == null) { ok = false; break; }
       }
-      if (!ok) { toast('无法解析时间: ' + raw, true); renderProperties(); return; }
+      if (!ok) { toast(__t('无法解析时间: ') + raw, true); renderProperties(); return; }
       // 维持输入的表达式原样（如 start:$note），导出时同样输出表达式，方便
       // 后续更改；纯数字才存为数值。
       const numeric = /^-?\d+(\.\d+)?$/.test(raw);
@@ -7224,7 +7225,7 @@
       : obj.states.length - 1;
     resolveAllLaneOverlaps([obj.id]);
     dirtyAndRefresh();
-    toast('已在 ' + fmtTime(t) + ' 添加关键帧');
+    toast(__t('已在 ') + fmtTime(t) + __t(' 添加关键帧'));
   }
 
   // “添加关键帧”：给所有选中的时间块在播放头处各建一个关键帧。clickedId 用于
@@ -7339,7 +7340,7 @@
     renderProperties();
     renderObjectTree();
     requestRender();
-    toast(`已粘贴 ${count} 个关键帧至播放头`);
+    toast(__t('已粘贴 ') + count + __t(' 个关键帧至播放头'));
   }
 
   function dirtyAndRefresh(rebuildProps = true) {
@@ -7419,7 +7420,7 @@
     state.previewEmptyFocus = false;
     state.dirty = true;
     refreshAll();
-    toast(`已在 Controller 轨道 ${id}中启用 ${valid.length} 个属性卡片`);
+    toast(__t('已在 Controller 轨道 ') + id + __t('中启用 ') + valid.length + __t(' 个属性卡片'));
     return obj;
   }
 
@@ -7508,7 +7509,7 @@
     const owners = controllerCardOwners();
     const available = Schema.CONTROLLER_CARDS.filter((c) => owners[c.key] == null);
     openControllerCardPicker('添加 Controller 对象',
-      '选择要在此新轨道上启用的属性卡片（可多选，一次在同一个轨道内启用多个卡片）。未被其它轨道占用的卡片才可选用。',
+      __t('选择要在此新轨道上启用的属性卡片（可多选，一次在同一个轨道内启用多个卡片）。未被其它轨道占用的卡片才可选用。'),
       available, (picked) => createControllerWithCards(picked, preview.time), '创建');
   }
 
@@ -7518,7 +7519,7 @@
     const owners = controllerCardOwners();
     const available = Schema.CONTROLLER_CARDS.filter((c) => owners[c.key] == null);
     openControllerCardPicker('添加 Controller 属性',
-      '选择要分配给当前轨道的新属性卡片（可多选）。已被任何轨道（含当前轨道）占用的卡片不会列出。',
+      __t('选择要分配给当前轨道的新属性卡片（可多选）。已被任何轨道（含当前轨道）占用的卡片不会列出。'),
       available, (picked) => assignCardsToTrack(trackId, picked), '分配');
   }
 
@@ -7881,6 +7882,26 @@
 
   // ---- 在线更新：手动检查 + 后台更新事件提示 ----
   let updateChecking = false;
+
+  // 切换语言并全量刷新界面（设置面板与欢迎页下拉共用）。
+  function applyLanguage(l) {
+    if (!window.SBi18n) return;
+    window.SBi18n.setLanguage(l, true);
+    window.SBi18n.applyStatic(document);
+    window.SBi18n.localizeSchema();
+    renderProperties();
+    renderObjectTree();
+    renderTimeline();
+    showWelcome();
+    const mb = document.getElementById('modalBox');
+    if (mb) window.SBi18n.applyStatic(mb);
+    const wl = $('#welcomeLang');
+    if (wl) wl.value = l;
+    const sl = $('#setLanguage');
+    if (sl) sl.value = l;
+    toast(window.SBi18n.t('语言已切换'));
+  }
+
   async function manualUpdateCheck() {
     if (updateChecking) return;
     updateChecking = true;
@@ -7908,7 +7929,7 @@
     });
     window.sbAPI.onUpdateProgress(() => {});
     window.sbAPI.onUpdateDownloaded((p) => {
-      confirmDialog('更新已就绪', '新版本 v' + (p && p.version ? p.version : '') + ' 已下载完成，重启后即可安装。', [
+      confirmDialog('更新已就绪', __t('新版本 v') + (p && p.version ? p.version : '') + __t('已下载完成，重启后即可安装。'), [
         { label: '稍后', cls: '' },
         { label: '立即重启安装', cls: 'primary' }
       ]).then((choice) => {
@@ -7942,7 +7963,7 @@
       box.innerHTML = '';
       return;
     }
-    let html = '<div class="recent-title">最近项目</div>';
+    let html = __t('<div class="recent-title">最近项目</div>');
     for (const p of list) {
       const name = p.split(/[\\/]/).pop().replace(/\.(ctr|ctdsber)$/i, '');
       html += `<div class="recent-item" data-path="${escapeHtml(p)}">
@@ -7963,7 +7984,7 @@
           // 与"打开项目"入口一致：包含未保存修改确认与"在哪里打开项目"提示。
           await openProjectFilePath(item.dataset.path);
         } catch (e) {
-          toast('打开项目失败: ' + e.message, true);
+          toast(__t('打开项目失败: ') + e.message, true);
         }
       };
       item.addEventListener('click', openProject);
@@ -8018,7 +8039,7 @@
       { label: '创建项目', cls: 'primary' }
     ], async (btn) => {
       if (btn.label !== '创建项目') return;
-      const name = $('#pjName').value.trim() || '未命名项目';
+      const name = $('#pjName').value.trim() || __t('未命名项目');
       if (!sel.music || !sel.chart) { toast('请选择音乐与谱面', true); return; }
       const projectPath = await window.sbAPI.saveProjectAs(name + '.ctr');
       if (!projectPath) return;
@@ -8057,7 +8078,7 @@
             const res = await window.sbAPI.projectOpen({ path: projectPath });
             if (res) await loadLevelInfo(res.info, { projectPath: res.projectPath, config: res.config });
           } catch (e) {
-            toast('打开项目失败: ' + e.message, true);
+            toast(__t('打开项目失败: ') + e.message, true);
           }
           return;
         }
@@ -8074,16 +8095,16 @@
           levelId: ($('#pjLevelId').value || '').trim()
         });
         await loadLevelInfo(res.info, { projectPath: res.projectPath, config: res.config });
-        toast('项目已创建: ' + projectPath);
+        toast(__t('项目已创建: ') + projectPath);
       } catch (e) {
-        toast('创建项目失败: ' + e.message, true);
+        toast(__t('创建项目失败: ') + e.message, true);
       }
     });
     const filters = {
-      music: { title: '选择音乐文件', filters: [{ name: '音频', extensions: ['mp3', 'ogg', 'wav', 'wma', 'aac', 'acc'] }] },
-      chart: { title: '选择谱面文件', filters: [{ name: '谱面', extensions: ['txt', 'json'] }] },
-      background: { title: '选择背景图片', filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg'] }] },
-      storyboard: { title: '选择 StoryBoard 文件', filters: [{ name: 'StoryBoard', extensions: ['json'] }] }
+      music: { title: __t('选择音乐文件'), filters: [{ name: __t('音频'), extensions: ['mp3', 'ogg', 'wav', 'wma', 'aac', 'acc'] }] },
+      chart: { title: __t('选择谱面文件'), filters: [{ name: __t('谱面'), extensions: ['txt', 'json'] }] },
+      background: { title: __t('选择背景图片'), filters: [{ name: __t('图片'), extensions: ['png', 'jpg', 'jpeg'] }] },
+      storyboard: { title: __t('选择 StoryBoard 文件'), filters: [{ name: 'StoryBoard', extensions: ['json'] }] }
     };
     $('#modalBody').querySelectorAll('.pick-row .mini-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -8099,14 +8120,14 @@
 
   async function openProjectFlow() {
     const path = await window.sbAPI.pickFile({
-      title: '打开 Cyster 项目',
+      title: __t('打开 Cyster 项目'),
       filters: [{ name: 'Cyster 项目', extensions: ['ctr', 'ctdsber'] }]
     });
     if (!path) return;
     try {
       await openProjectFilePath(path);
     } catch (e) {
-      toast('打开项目失败: ' + e.message, true);
+      toast(__t('打开项目失败: ') + e.message, true);
     }
   }
 
@@ -8278,9 +8299,9 @@
       const res = await window.sbAPI.projectImportLevel();
       if (!res) return;
       await loadLevelInfo(res.info, { projectPath: res.projectPath, config: res.config, mode: 'import-level' });
-      toast('已导入 .cytoidlevel 并创建新项目: ' + res.projectPath);
+      toast(__t('已导入 .cytoidlevel 并创建新项目: ') + res.projectPath);
     } catch (e) {
-      toast('导入失败: ' + e.message, true);
+      toast(__t('导入失败: ') + e.message, true);
     }
   }
 
@@ -8320,11 +8341,11 @@
     };
     const esc = (v) => escapeHtml(v == null ? '' : String(v));
     const fileFilters = {
-      music: { title: '选择音乐文件', filters: [{ name: '音频', extensions: ['mp3', 'ogg', 'wav', 'wma', 'aac', 'acc'] }] },
-      preview: { title: '选择歌曲预览文件', filters: [{ name: '音频', extensions: ['mp3', 'ogg', 'wav', 'wma', 'aac', 'acc'] }] },
-      background: { title: '选择曲绘图片', filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg'] }] },
-      path: { title: '选择谱面文件', filters: [{ name: '谱面', extensions: ['txt', 'json'] }] },
-      storyboard: { title: '选择 StoryBoard 文件', filters: [{ name: 'StoryBoard', extensions: ['json'] }] }
+      music: { title: __t('选择音乐文件'), filters: [{ name: __t('音频'), extensions: ['mp3', 'ogg', 'wav', 'wma', 'aac', 'acc'] }] },
+      preview: { title: __t('选择歌曲预览文件'), filters: [{ name: __t('音频'), extensions: ['mp3', 'ogg', 'wav', 'wma', 'aac', 'acc'] }] },
+      background: { title: __t('选择曲绘图片'), filters: [{ name: __t('图片'), extensions: ['png', 'jpg', 'jpeg'] }] },
+      path: { title: __t('选择谱面文件'), filters: [{ name: __t('谱面'), extensions: ['txt', 'json'] }] },
+      storyboard: { title: __t('选择 StoryBoard 文件'), filters: [{ name: 'StoryBoard', extensions: ['json'] }] }
     };
     const metaPane = `
       <div class="le-grid">
@@ -8364,7 +8385,7 @@
           <div class="le-field"><label>难度</label><input class="le-slider" type="range" min="0" max="16" step="1" data-f="difficulty" data-i="${i}" value="${esc(c.difficulty)}" /><span class="le-diff-label" data-difflabel="${i}">${difficultyDisplayLabel(c.difficulty)}</span></div>
           <div class="le-field"><label>故事板</label><input data-f="storyboard" data-i="${i}" readonly value="${esc(c.storyboard)}" placeholder="无" /><button class="mini-btn" data-pick="storyboard" data-i="${i}">选择</button><button class="mini-btn le-clear" data-clear="storyboard" data-i="${i}">×</button></div>
         </div>
-      </div>`).join('') || '<div class="help-text">暂无谱面</div>';
+      </div>`).join('') || __t('<div class="help-text">暂无谱面</div>');
 
     const chartsPane = `
       <div id="leChartsList">${renderChartsList()}</div>
@@ -8511,7 +8532,7 @@
         toast('已保存关卡设置');
       } catch (e) {
         restoreFoot();
-        toast('保存失败: ' + e.message, true);
+        toast(__t('保存失败: ') + e.message, true);
       }
     }
 
@@ -8761,7 +8782,7 @@
       toast('项目已保存');
       return true;
     } catch (e) {
-      toast('保存失败: ' + e.message, true);
+      toast(__t('保存失败: ') + e.message, true);
       return false;
     }
   }
@@ -8773,7 +8794,7 @@
       state.storyboardFileName || 'storyboard.json';
     const out = await window.sbAPI.saveJsonDialog({ defaultName: def, content });
     if (!out) return;
-    toast('StoryBoard JSON 已导出: ' + out);
+    toast(__t('StoryBoard JSON 已导出: ') + out);
   }
 
   async function exportZip() {
@@ -8783,9 +8804,9 @@
     if (!out) return;
     try {
       await window.sbAPI.packLevel({ levelDir: state.levelDir, outZip: out });
-      toast('已导出: ' + out);
+      toast(__t('已导出: ') + out);
     } catch (e) {
-      toast('导出失败: ' + e.message, true);
+      toast(__t('导出失败: ') + e.message, true);
     }
   }
 
@@ -8826,7 +8847,7 @@
             }
           }
         } catch (e) {
-        toast('记录 StoryBoard 文件失败: ' + e.message, true);
+        toast(__t('记录 StoryBoard 文件失败: ') + e.message, true);
         }
         }
       }
@@ -8838,9 +8859,9 @@
       state.selectedObjId = null;
       state.selectedKeyIdx = null;
       dirtyAndRefresh();
-      toast('已导入: ' + filePath);
+      toast(__t('已导入: ') + filePath);
     } catch (e) {
-      toast('导入失败: ' + e.message, true);
+      toast(__t('导入失败: ') + e.message, true);
     }
   }
 
@@ -8849,14 +8870,14 @@
   // ---------------------------------------------------------------
   function showSettings() {
     const playerPath = (state.settings && state.settings.playerExe) || playerExeDefault();
-    const playerPathTip = '选择 Cytoidplayer.exe 所在的文件夹（保存后生效）；加载关卡时会先把当前关卡复制到其 player 文件夹（原内容移入新建的 Backup file+时间戳 文件夹），再启动 Cytoidplayer';
+    const playerPathTip = __t('选择 Cytoidplayer.exe 所在的文件夹（保存后生效）；加载关卡时会先把当前关卡复制到其 player 文件夹（原内容移入新建的 Backup file+时间戳 文件夹），再启动 Cytoidplayer');
     const curLang = window.SBi18n ? window.SBi18n.getLanguage() : 'zh-CN';
     openModal('设置', `
       <div class="pick-row"><label data-i18n="Cytoidplayer路径">Cytoidplayer路径</label><span id="setPlayerExe" class="settings-path">${escapeHtml(playerPath)}</span><button type="button" class="mini-btn" id="btnPickPlayerFolder" data-i18n="选择文件夹…">选择文件夹…</button><span class="field-tip" id="playerPathTip">i</span></div>
       <div class="pick-row"><label data-i18n="界面语言">界面语言</label><select id="setLanguage">
-        <option value="zh-CN">简体中文</option>
-        <option value="zh-TW">繁體中文</option>
-        <option value="en">English</option>
+        <option value="zh-CN">简体中文 / Simplified Chinese</option>
+        <option value="zh-TW">繁體中文 / Traditional Chinese</option>
+        <option value="en">English / English</option>
       </select></div>
       <div class="help-text" style="margin-top:8px"><b data-i18n="关于">关于</b><span data-i18n="：Cyster v0.1beta — 基于 ">：Cyster v0.1beta — 基于 </span><a href="#" id="ghLink">Cytoid 官方 GitHub</a><span data-i18n=" 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。"> 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。</span></div>`, [
       { label: '关闭', cls: 'primary' }
@@ -8869,7 +8890,7 @@
       if (window.SBSchema) window.SBSchema.hideFieldTip();
     });
     $('#btnPickPlayerFolder').addEventListener('click', async () => {
-      const picked = await window.sbAPI.pickFolder({ title: '选择 Cytoidplayer 所在文件夹' });
+      const picked = await window.sbAPI.pickFolder({ title: __t('选择 Cytoidplayer 所在文件夹') });
       if (!picked) return;
       state.settings.playerExe = picked;
       const el = $('#setPlayerExe');
@@ -8884,17 +8905,7 @@
     if (langSel) {
       langSel.value = curLang;
       langSel.addEventListener('change', () => {
-        const l = langSel.value;
-        if (!window.SBi18n) return;
-        window.SBi18n.setLanguage(l, true);
-        window.SBi18n.applyStatic(document);
-        window.SBi18n.localizeSchema();
-        window.SBi18n.applyStatic(document.getElementById('modalBox'));
-        renderProperties();
-        renderObjectTree();
-        renderTimeline();
-        showWelcome();
-        toast(window.SBi18n.t('语言已切换'));
+        applyLanguage(langSel.value);
       });
     }
   }
@@ -8922,7 +8933,7 @@
       await window.sbAPI.launchPlayer({ levelDir: state.levelDir, playerPath: exe });
       toast('已复制关卡到 Cytoidplayer 并启动');
     } catch (e) {
-      toast('启动 Cytoidplayer 失败: ' + e.message, true);
+      toast(__t('启动 Cytoidplayer 失败: ') + e.message, true);
     }
   }
 
@@ -9097,9 +9108,9 @@
     overlay.innerHTML =
       '<canvas id="eggCanvas"></canvas>' +
       '<div class="egg-box">' +
-      `<div class="egg-img-wrap">${imgUrl ? `<img id="eggImg" src="${imgUrl}" alt="彩蛋" />` : '<div class="egg-img-missing">(图片缺失)</div>'}</div>` +
-      '<div class="egg-text">恭喜你发现了彩蛋：Cyyysters!!</div>' +
-      '<button class="egg-confirm" id="eggConfirm">确认</button>' +
+      `<div class="egg-img-wrap">${imgUrl ? `<img id="eggImg" src="${imgUrl}" alt="${__t('彩蛋')}" />` : __t('<div class="egg-img-missing">(图片缺失)</div>')}</div>` +
+      __t('<div class="egg-text">恭喜你发现了彩蛋：Cyyysters!!</div>') +
+      `<button class="egg-confirm" id="eggConfirm">${__t('确认')}</button>` +
       '</div>';
     document.body.appendChild(overlay);
     document.getElementById('eggConfirm').addEventListener('click', closeEasterEgg);
@@ -9239,6 +9250,8 @@
     $('#btnWelcomeImport').addEventListener('click', importLevelFlow);
     $('#btnWelcomeManual').addEventListener('click', () => window.sbAPI.manualOpen());
     $('#btnTipNext').addEventListener('click', showRandomTip);
+    const welcomeLang = $('#welcomeLang');
+    if (welcomeLang) welcomeLang.addEventListener('change', () => applyLanguage(welcomeLang.value));
     wireUpdateEvents();
     $('#btnWelcomeManage').addEventListener('click', hideWelcome);
     $('#btnWelcomeSettings').addEventListener('click', projectSettingsFlow);
@@ -9588,7 +9601,7 @@
       rebuildPreviewChart(ratio);
       applyPreviewRatioLayout();
       syncPreviewRatioMenu();
-      toast('预览窗口比例: ' + ratioStr);
+      toast(__t('预览窗口比例: ') + ratioStr);
     }
 
     const resizePreview = () => {
@@ -10361,19 +10374,19 @@
         // 复制时间
         { label: '复制note时间', action: () => {
           const v = note.start_time.toFixed(3);
-          navigator.clipboard.writeText(v).then(() => toast('已复制 note 时间: ' + v));
+          navigator.clipboard.writeText(v).then(() => toast(__t('已复制 note 时间: ') + v));
         } },
         { label: '复制note的渐入（intro）时间', action: () => {
           const v = note.intro_time.toFixed(3);
-          navigator.clipboard.writeText(v).then(() => toast('已复制 note 渐入（intro）时间: ' + v));
+          navigator.clipboard.writeText(v).then(() => toast(__t('已复制 note 渐入（intro）时间: ') + v));
         } },
         { sep: true },
         // 复制坐标
         { label: '复制noteX', action: () => {
-          navigator.clipboard.writeText('notex:' + note.x).then(() => toast('已复制 noteX:' + note.x));
+          navigator.clipboard.writeText('notex:' + note.x).then(() => toast(__t('已复制 noteX: ') + note.x));
         } },
         { label: '复制noteY', action: () => {
-          navigator.clipboard.writeText('notey:' + note.chartY).then(() => toast('已复制 noteY:' + note.chartY));
+          navigator.clipboard.writeText('notey:' + note.chartY).then(() => toast(__t('已复制 noteY: ') + note.chartY));
         } },
         { sep: true },
         // 编辑 / 创建 / 单独编辑 note_controller
@@ -10409,7 +10422,7 @@
         try {
           if (ext === 'ctr' || ext === 'ctdsber') {
             await openProjectFilePath(p);
-            toast('已打开项目: ' + p);
+            toast(__t('已打开项目: ') + p);
           } else if (ext === 'cytoidlevel' || ext === 'zip') {
             if (!(await confirmDiscardUnsaved('导入新项目'))) return;
             const res = await window.sbAPI.projectImportLevelPath({
@@ -10417,7 +10430,7 @@
             });
             if (res) {
               await loadLevelInfo(res.info, { projectPath: res.projectPath, config: res.config });
-              toast('已导入关卡并创建新项目: ' + res.projectPath);
+              toast(__t('已导入关卡并创建新项目: ') + res.projectPath);
             }
           } else if (ext === 'json') {
             toast('请使用“导入 StoryBoard JSON”或项目设置加载');
@@ -10427,7 +10440,7 @@
             toast('不支持的文件格式: .' + ext, true);
           }
         } catch (err) {
-          toast('读取拖入文件失败: ' + err.message, true);
+          toast(__t('读取拖入文件失败: ') + err.message, true);
         }
       }
     });
@@ -10489,6 +10502,8 @@
       window.SBi18n.setLanguage(state.settings.language || 'zh-CN', false);
       window.SBi18n.applyStatic();
       window.SBi18n.localizeSchema();
+      const wl = $('#welcomeLang');
+      if (wl) wl.value = window.SBi18n.getLanguage();
     }
     // Restore the remembered volume onto the slider and the audio player.
     const savedVol = typeof state.settings.volume === 'number' && isFinite(state.settings.volume)
@@ -10503,7 +10518,7 @@
     // File association: a .ctr / .ctdsber double-click (or a second instance
     // launch with a project file) is delivered by the main process.
     window.sbAPI.onOpenProjectFile((filePath) => {
-      openProjectFilePath(filePath).catch((e) => toast('打开项目失败: ' + e.message, true));
+      openProjectFilePath(filePath).catch((e) => toast(__t('打开项目失败: ') + e.message, true));
     });
     // note 选择器外部窗口开关：属性页 Note 输入框的显示随其同步。
     if (window.sbAPI && window.sbAPI.nsOnWindowState) {
