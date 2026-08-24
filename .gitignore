@@ -33,6 +33,32 @@ tools/run_probe_last_log.txt
 tools/fx_visual_debug.txt
 tools/**/*.png
 
+# ---- tools 瘦身：只跟踪常用/文档引用脚本，其余本地保留 ----
+tools/*
+!tools/README.md
+!tools/update_winunpacked.js
+!tools/run_cmd.js
+!tools/kill_cytoid.ps1
+!tools/smoke_test.js
+!tools/verify_v2.js
+!tools/run_probe.js
+!tools/run_probe.ps1
+!tools/check_asar.js
+!tools/probe_fx_shaders.js
+!tools/fx_shader_test.html
+!tools/probe_orientation.js
+!tools/fx_orientation_test.html
+!tools/test_camera_rot.js
+!tools/test_camera_rot.html
+!tools/manual_probe.js
+!tools/manual_probe.html
+!tools/manual_app_probe.js
+!tools/tips_probe.js
+!tools/undo_desc_probe.js
+!tools/dblclick_ns_probe.js
+!tools/unsaved_dialog_probe.js
+!tools/update_entry_probe.js
+
 # ---- 通用 ----
 *.log
 .DS_Store

@@ -1,9 +1,0 @@
-original_prefix_intact=True
-original_count=83 new_count=124
-sections=[('06：右侧属性界面介绍', 'Heading 5'), ('07：StoryBoard 格式说明', 'Heading 5'), ('08：快捷键一览', 'Heading 5')]
-warn: prefix='❗请注意：' bold=True red=FF0000 bodyFont=黑体
-warn: prefix='❗请注意：' bold=True red=FF0000 bodyFont=黑体
-warn: prefix='❗请注意：' bold=True red=FF0000 bodyFont=黑体
-warn: prefix='❗请注意：' bold=True red=FF0000 bodyFont=黑体
-warn_count=4
-non_normal_in_added=[]

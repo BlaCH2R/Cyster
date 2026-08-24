@@ -1,8 +1,0 @@
-read chart
-read storyboard
-parse chart
-fromCompiled
-compile
-compiled done: nc=394 sprites=268
-evaluate at 262.898875
-evaluated sprites=8
