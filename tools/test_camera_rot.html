@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>camera rot test</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  try {
+    const out = { checks: [], ok: true };
+    const c = document.createElement('canvas');
+    c.width = 960; c.height = 540;
+    const pv = new window.SBPreview.PreviewRenderer(c);
+    const W = 960, H = 540;
+
+    const check = (name, cond, detail) => {
+      out.checks.push({ name, pass: !!cond, detail });
+      if (!cond) out.ok = false;
+    };
+    const withCtrl = (rot_x, rot_y, rot_z) => {
+      pv.mergedCtrl = {
+        perspective: true, fov: 53.2, size: 5,
+        rot_x, rot_y, rot_z, xPx: 0, yPx: 0, zPx: -10,
+      };
+      return pv.ctxInfo();
+    };
+
+    // --- rot_x = +30 (native-player convention): the top edge of the field
+    // comes nearer (larger depth / wider trapezoid) and the field shifts up. ---
+    const info30 = withCtrl(30, 0, 0);
+    const pTop = pv.worldToPx(0, 2.5, info30);
+    const pBot = pv.worldToPx(0, -2.5, info30);
+    const topSpan = Math.abs(pv.worldToPx(5, 2.5, info30).x - pv.worldToPx(-5, 2.5, info30).x);
+    const botSpan = Math.abs(pv.worldToPx(5, -2.5, info30).x - pv.worldToPx(-5, -2.5, info30).x);
+    check('rotx+30 top nearer than bottom', pTop.depth > pBot.depth,
+      `topDepth=${pTop.depth.toFixed(3)} botDepth=${pBot.depth.toFixed(3)}`);
+    check('rotx+30 top span wider than bottom', topSpan > botSpan,
+      `topSpan=${topSpan.toFixed(2)} botSpan=${botSpan.toFixed(2)}`);
+    check('rotx+30 field shifts up', pv.worldToPx(0, 0, info30).y < H / 2,
+      `centerY=${pv.worldToPx(0, 0, info30).y.toFixed(1)}`);
+
+    // --- rot_x = -30: mirrored. ---
+    const infom30 = withCtrl(-30, 0, 0);
+    const nTop = pv.worldToPx(0, 2.5, infom30);
+    const nBot = pv.worldToPx(0, -2.5, infom30);
+    const nTopSpan = Math.abs(pv.worldToPx(5, 2.5, infom30).x - pv.worldToPx(-5, 2.5, infom30).x);
+    const nBotSpan = Math.abs(pv.worldToPx(5, -2.5, infom30).x - pv.worldToPx(-5, -2.5, infom30).x);
+    check('rotx-30 bottom nearer than top', nBot.depth > nTop.depth,
+      `topDepth=${nTop.depth.toFixed(3)} botDepth=${nBot.depth.toFixed(3)}`);
+    check('rotx-30 bottom span wider than top', nBotSpan > nTopSpan,
+      `topSpan=${nTopSpan.toFixed(2)} botSpan=${nBotSpan.toFixed(2)}`);
+
+    // --- rot_y = +30: left side of the field is nearer, field shifts left. ---
+    const infoY = withCtrl(0, 30, 0);
+    const pR = pv.worldToPx(5, 0, infoY);
+    const pL = pv.worldToPx(-5, 0, infoY);
+    check('roty+30 left nearer than right', pL.depth > pR.depth,
+      `leftDepth=${pL.depth.toFixed(3)} rightDepth=${pR.depth.toFixed(3)}`);
+    check('roty+30 field center shifts left', pv.worldToPx(0, 0, infoY).x < W / 2,
+      `centerX=${pv.worldToPx(0, 0, infoY).x.toFixed(1)}`);
+
+    // --- rot_x = rot_y = 0: projection must equal the previous affine math. ---
+    const info0 = withCtrl(0, 0, 0);
+    const S = info0.S;
+    const q = pv.worldToPx(2, 1, info0);
+    check('no rotation matches affine x', Math.abs(q.x - (W / 2 + 2 * S)) < 1e-6, `x=${q.x.toFixed(4)}`);
+    check('no rotation matches affine y', Math.abs(q.y - (H / 2 - 1 * S)) < 1e-6, `y=${q.y.toFixed(4)}`);
+    check('no rotation depth=1', Math.abs(q.depth - 1) < 1e-9, `depth=${q.depth}`);
+
+    // --- projectedY agrees with worldToPx for x=0 (scanner/boundaries). ---
+    const py = pv.projectedY(2.5, info30);
+    const wpy = pv.worldToPx(0, 2.5, info30);
+    check('projectedY matches worldToPx y-offset', Math.abs(py - (H / 2 - wpy.y)) < 1e-6,
+      `projectedY=${py.toFixed(4)} derived=${(H / 2 - wpy.y).toFixed(4)}`);
+
+    // --- ortho mode: unchanged affine path, symmetric (no depth). ---
+    pv.mergedCtrl = { perspective: false, size: 5, rot_x: 30, rot_y: 0, rot_z: 0 };
+    const iOrtho = pv.ctxInfo();
+    const oTop = pv.worldToPx(0, 2.5, iOrtho);
+    const oBot = pv.worldToPx(0, -2.5, iOrtho);
+    check('ortho depth always 1', oTop.depth === 1 && oBot.depth === 1);
+
+    fs.writeFileSync(path.join(__dirname, 'test_camera_rot_out.json'), JSON.stringify(out, null, 2));
+    window.close();
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'test_camera_rot_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "compiled": true,
+  "texts": [],
+  "sprites": [],
+  "videos": [],
+  "lines": [],
+  "controllers": [
+    {
+      "Id": "shock.test",
+      "States": [
+        {
+          "Time": 0,
+          "Easing": 0,
+          "Shockwave": true
+        }
+      ]
+    }
+  ],
+  "note_controllers": []
+}

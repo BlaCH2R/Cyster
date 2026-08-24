@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>scanner smoothing tick progress</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script>
+  try {
+    const out = { checks: [], ok: true };
+    const check = (name, cond, detail) => {
+      out.checks.push({ name, pass: !!cond, detail });
+      if (!cond) out.ok = false;
+    };
+
+    // 单页 [0,960)，页中 tick 480 处 tempo 变速（300000 → 30000）。
+    const chart = new window.SBEngine.chart.Chart(JSON.stringify({
+      time_base: 480,
+      tempo_list: [{ tick: 0, value: 300000 }, { tick: 480, value: 30000 }],
+      page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: 1 }],
+      note_list: []
+    }), {});
+    const m = chart.model;
+    const vr = chart.verticalRatio, bs = chart.baseSize, vo = chart.verticalOffset;
+    const toY = (progress) => vr * (-bs + 2 * bs * progress) + vo;
+
+    // 默认平滑开启。
+    check('smoothing default enabled', chart.useScannerSmoothing === true);
+
+    // t=0.31s：时间进度 0.31/0.33≈0.9394，tick 进度 (480+160)/960=0.6667。
+    const t = 0.31;
+    const tick = chart.convertToTick(t);
+    const tickProgress = (tick - 0) / 960;
+    const timeProgress = (t - 0) / (m.page_list[0].end_time - 0);
+    const ySmooth = chart.getScannerPositionY(t);       // 默认平滑
+    chart.useScannerSmoothing = false;
+    const yRaw = chart.getScannerPositionY(t);
+
+    check('smoothing uses tick progress', Math.abs(ySmooth - toY(tickProgress)) < 1e-6,
+      `smooth=${ySmooth.toFixed(6)} tickY=${toY(tickProgress).toFixed(6)} tick=${tick} tickP=${tickProgress.toFixed(4)}`);
+    check('non-smoothing uses time progress', Math.abs(yRaw - toY(timeProgress)) < 1e-6,
+      `raw=${yRaw.toFixed(6)} timeY=${toY(timeProgress).toFixed(6)} timeP=${timeProgress.toFixed(4)}`);
+    check('tick != time progress on tempo page', Math.abs(tickProgress - timeProgress) > 0.01,
+      `tickP=${tickProgress.toFixed(4)} timeP=${timeProgress.toFixed(4)}`);
+
+    fs.writeFileSync(path.join(__dirname, 'probe_scanner_smoothing_out.json'), JSON.stringify(out, null, 2));
+    window.close();
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'probe_scanner_smoothing_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

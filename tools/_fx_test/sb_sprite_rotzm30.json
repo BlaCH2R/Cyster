@@ -1,0 +1,26 @@
+{
+  "compiled": true,
+  "texts": [],
+  "sprites": [
+    {
+      "Id": "sprite.rot",
+      "States": [
+        {
+          "Time": 0,
+          "Easing": 0,
+          "Path": "arrow.png",
+          "X": { "value": 0, "unit": "stagex" },
+          "Y": { "value": 0, "unit": "stagey" },
+          "Width": { "value": 200, "unit": "stagex" },
+          "Height": { "value": 200, "unit": "stagey" },
+          "RotZ": -30,
+          "Opacity": 1
+        }
+      ]
+    }
+  ],
+  "videos": [],
+  "lines": [],
+  "controllers": [],
+  "note_controllers": []
+}

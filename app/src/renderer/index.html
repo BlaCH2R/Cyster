@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'">
+  <title>Cyster v0.1beta</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Toolbar -->
+    <header id="toolbar">
+      <div class="brand">
+        <span class="logo"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 1.2 14.8 8 8 14.8 1.2 8z"/></svg></span>
+        <span class="brand-title">Cyster</span>
+        <span class="brand-ver">v0.1beta</span>
+      </div>
+      <div class="menu-bar">
+        <div class="menu-item" data-menu="file">文件
+          <div class="menu-dropdown">
+            <div class="menu-entry" data-action="new">新建项目</div>
+            <div class="menu-entry" data-action="open">打开项目…</div>
+            <div class="menu-entry" data-action="switch-difficulty">切换难度…</div>
+            <div class="menu-entry" data-action="import-level">导入 .cytoidlevel…</div>
+            <div class="menu-sep"></div>
+            <div class="menu-entry" data-action="import-sb">导入 StoryBoard…</div>
+            <div class="menu-entry" data-action="save-sb">保存 StoryBoard</div>
+            <div class="menu-entry" data-action="export-sb">导出 StoryBoard…</div>
+            <div class="menu-entry" data-action="export-level">导出 .cytoidlevel…</div>
+            <div class="menu-sep"></div>
+            <div class="menu-entry" data-action="project-settings">项目设置…</div>
+            <div class="menu-entry" data-action="show-folder">打开项目文件夹</div>
+            <div class="menu-sep"></div>
+            <div class="menu-entry" data-action="quit">退出</div>
+          </div>
+        </div>
+        <div class="menu-item" data-menu="edit">编辑
+          <div class="menu-dropdown">
+            <div class="menu-entry" data-action="undo">撤销 <span class="menu-key">Ctrl+Z</span></div>
+            <div class="menu-entry" data-action="redo">重做 <span class="menu-key">Ctrl+Y</span></div>
+            <div class="menu-sep"></div>
+            <div class="menu-entry" data-action="duplicate-selected">复制所选对象</div>
+            <div class="menu-entry danger" data-action="delete-selected">删除所选对象</div>
+          </div>
+        </div>
+        <div class="menu-item" data-menu="view">视图
+          <div class="menu-dropdown">
+            <div class="menu-entry menu-toggle" data-view-toggle="chkShowIds" data-on="显示 Note ID" data-off="隐藏 Note ID">显示 Note ID</div>
+            <div class="menu-entry menu-toggle" data-view-toggle="chkShowUI" data-on="显示 UI" data-off="隐藏 UI">显示 UI</div>
+            <div class="menu-entry menu-toggle" data-view-toggle="chkEffects" data-on="启用滤镜" data-off="关闭滤镜">启用滤镜</div>
+            <div class="menu-entry menu-toggle" data-view-toggle="chkRichFx" data-on="启用丰富滤镜" data-off="关闭丰富滤镜">启用丰富滤镜</div>
+            <div class="menu-sep"></div>
+            <div class="menu-entry menu-toggle" data-preview-ratio="21/9">预览比例 21:9</div>
+            <div class="menu-entry menu-toggle" data-preview-ratio="16/10">预览比例 16:10</div>
+            <div class="menu-entry menu-toggle" data-preview-ratio="4/3">预览比例 4:3</div>
+            <div class="menu-entry menu-toggle" data-preview-ratio="3/2">预览比例 3:2</div>
+            <div class="menu-sep"></div>
+            <div class="menu-entry" data-action="reset-layout">还原默认窗口布局</div>
+          </div>
+        </div>
+        <div class="menu-item" data-menu="settings">设置
+          <div class="menu-dropdown">
+            <div class="menu-entry" data-action="project-settings">项目设置…</div>
+            <div class="menu-sep"></div>
+            <div class="menu-entry" data-action="app-settings">应用设置 / 关于</div>
+          </div>
+        </div>
+        <div class="menu-item" data-menu="tools">工具
+          <div class="menu-dropdown">
+            <div class="menu-entry" data-action="launch-player">使用Cytoidplayer加载当前关卡</div>
+            <div class="menu-entry" data-action="fix-scanline-event-colors">修复扫描线变速事件颜色</div>
+            <div class="menu-entry" data-action="note-selector-editor">Note 选择器编辑器</div>
+            <div class="menu-entry" data-action="repair-merged-blocks">尝试修复合并时间块</div>
+          </div>
+        </div>
+      </div>
+      <div id="statusBar" class="status">未打开项目</div>
+    </header>
+
+    <!-- Main -->
+    <main id="main">
+      <!-- Left: assets + objects -->
+      <section id="leftPanel" class="panel">
+        <div class="panel-title"><span>素材库</span></div>
+        <div id="assetList" class="asset-list"></div>
+        <div class="panel-title"><span>对象</span></div>
+        <div id="objectAddList" class="object-add-list"></div>
+      </section>
+      <div id="splitL" class="splitter-v"></div>
+
+      <!-- Center: preview -->
+      <section id="centerPanel">
+        <div id="previewWrap">
+          <div id="previewScroll">
+            <canvas id="previewCanvas"></canvas>
+          </div>
+          <div id="previewEmpty">
+            <div class="empty-big"><svg viewBox="0 0 16 16" width="64" height="64" aria-hidden="true"><path fill="currentColor" d="M8 1.2 14.8 8 8 14.8 1.2 8z"/></svg></div>
+            <div class="empty-text">请先打开一个 Cytoid 关卡（.cytoidlevel）或关卡目录</div>
+          </div>
+          <div id="previewHint"></div>
+          <div id="previewNav" class="preview-nav">
+            <canvas id="previewNavCanvas"></canvas>
+            <div id="previewNavView"></div>
+          </div>
+        </div>
+        <div id="transport">
+          <button id="btnPlay" class="tr-btn" title="播放/暂停 (Space)"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M4 2l10 6-10 6z"/></svg></button>
+          <button id="btnPrevKey" class="tr-btn" title="上一关键帧"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M4 2h2v12H4zM15 3.2 7.5 8l7.5 4.8z"/></svg></button>
+          <button id="btnNextKey" class="tr-btn" title="下一关键帧"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M10 2h2v12h-2zM1 3.2 8.5 8 1 12.8z"/></svg></button>
+          <select id="pickMode" class="pick-mode" title="切换预览左键选择的对象层级">
+            <option value="note">选择 Note</option>
+            <option value="stage">选择 Stage</option>
+          </select>
+          <span id="timeDisplay" class="time-display">00:00.000</span>
+          <span class="time-sep">/</span>
+          <span id="timeTotal" class="time-display dim">00:00.000</span>
+          <span id="fpsBadge" class="fps">-- FPS</span>
+          <span class="sep"></span>
+          <button id="btnZoomToggle" class="tr-btn" title="显示/隐藏预览缩放控件"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="7" cy="7" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="10.3" y1="10.3" x2="14" y2="14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          <button id="btnZoomFull" class="tr-btn zoom-btn" title="预览全屏（Esc 退出）"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M3 6V3h3M10 3h3v3M13 10v3h-3M6 13H3v-3"/></svg></button>
+          <div id="zoomControls" class="zoom-popup hidden" title="预览缩放 50% ~ 200%">
+            <button id="btnZoomReset" class="tr-btn zoom-btn" title="重置预览缩放 (100%)"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 1 0 19.73 14h-2.08A5.99 5.99 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
+            <input id="zoomSlider" type="range" min="50" max="200" step="5" value="100" />
+            <span id="zoomLabel" class="zoom-label">100%</span>
+          </div>
+        </div>
+        <!-- 视图菜单开关状态（从预览下方移入菜单，隐藏保留） -->
+        <div id="viewToggles" hidden>
+          <input type="checkbox" id="chkShowIds" checked />
+          <input type="checkbox" id="chkShowUI" checked />
+          <input type="checkbox" id="chkEffects" checked />
+          <input type="checkbox" id="chkRichFx" checked />
+        </div>
+      </section>
+      <div id="splitR" class="splitter-v"></div>
+
+      <!-- Right: properties -->
+      <section id="rightPanel" class="panel">
+        <div id="propHeader" class="panel-title">属性</div>
+        <div id="propBody" class="prop-body"></div>
+      </section>
+    </main>
+
+    <!-- Timeline -->
+    <div id="splitT" class="splitter-h"></div>
+    <footer id="timeline"></footer>
+  </div>
+
+  <!-- Modal -->
+  <div id="modalMask" class="mask hidden">
+    <div id="modalBox" class="modal">
+      <div id="modalTitle" class="modal-title"></div>
+      <div id="modalBody" class="modal-body"></div>
+      <div id="modalFoot" class="modal-foot"></div>
+    </div>
+  </div>
+
+  <div id="toastWrap"></div>
+  <div id="contextMenu" class="context-menu hidden"></div>
+
+  <!-- Welcome page -->
+  <div id="welcome">
+    <div class="welcome-top">
+<span class="welcome-app">Cyster</span>
+      <span class="welcome-ver">v0.1beta</span>
+    </div>
+    <div class="welcome-scroll">
+      <div id="welcomeGreeting" class="welcome-greeting">欢迎回来</div>
+      <p class="welcome-hint">开始编辑 StoryBoard 前，您可以先……</p>
+      <div class="welcome-actions">
+        <button id="btnWelcomeNew" class="w-btn primary w-main">新建项目</button>
+        <button id="btnWelcomeOpen" class="w-btn w-main">打开项目</button>
+        <button id="btnWelcomeImport" class="w-btn ghost">导入 .cytoidlevel</button>
+        <button id="btnWelcomeManual" class="w-btn ghost">使用手册</button>
+        <button id="btnWelcomeUpdate" class="w-btn ghost">检查更新</button>
+      </div>
+
+      <div id="welcomeManage" class="welcome-manage hidden">
+        <div class="wm-text">
+          <h2>管理当前项目</h2>
+          <p>项目已打开。返回编辑器继续编排 StoryBoard，或在项目设置中管理音乐、谱面、背景与 StoryBoard 文件。</p>
+        </div>
+        <div class="wm-btns">
+          <button id="btnWelcomeManage" class="w-btn primary">返回编辑器</button>
+          <button id="btnWelcomeSettings" class="w-btn">项目设置</button>
+        </div>
+      </div>
+
+      <div class="recent-title">也可以从最近使用的项目继续</div>
+      <div id="recentProjects" class="recent-box"></div>
+
+      <div class="welcome-foot">
+        StoryBoard 功能以官方文档《StoryBoard 格式详解》(v2.0.2) 为准 ·
+        <a href="#" id="welcomeGh">Cytoid GitHub</a>
+      </div>
+    </div>
+
+    <!-- 内置 Tips 小浮窗：进入软件时随机显示一条，可“换一条” -->
+    <div id="welcomeTip" class="welcome-tip">
+      <div class="wt-head">
+        <span id="welcomeTipTitle" class="wt-title">Tips:</span>
+        <button id="btnTipNext" class="mini-btn" title="随机切换到另一条">换一条</button>
+      </div>
+      <div id="welcomeTipBody" class="wt-body"></div>
+    </div>
+  </div>
+
+  <script src="../engine/easing.js"></script>
+  <script src="../engine/json.js"></script>
+  <script src="../engine/colors.js"></script>
+  <script src="../engine/chart.js"></script>
+  <script src="../engine/storyboard.js"></script>
+  <script src="effects.js"></script>
+  <script src="preview.js"></script>
+  <script src="schema.js"></script>
+  <script src="timeline.js"></script>
+  <script src="tips_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

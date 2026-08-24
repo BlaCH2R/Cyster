@@ -1,0 +1,30 @@
+﻿{
+    "compiled":  true,
+    "texts":  [
+
+              ],
+    "sprites":  [
+
+                ],
+    "videos":  [
+
+               ],
+    "lines":  [
+
+              ],
+    "controllers":  [
+                        {
+                            "Id":  "arcade.test",
+                            "States":  [
+                                           {
+                                               "Time":  0,
+                                               "Easing":  0,
+                                               "Arcade":  false
+                                           }
+                                       ]
+                        }
+                    ],
+    "note_controllers":  [
+
+                         ]
+}

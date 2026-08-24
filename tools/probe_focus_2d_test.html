@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>focus 2d fallback test</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/renderer/effects.js"></script>
+<script>
+  try {
+    // Force the GL pipeline to be unavailable so the 2D fallback runs.
+    const origGet = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type) {
+      if (String(type).indexOf('webgl') === 0) return null;
+      return origGet.apply(this, arguments);
+    };
+    const W = 960, H = 540;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, W, H);
+    const before = ctx.getImageData(0, 0, W, H).data;
+    window.SBEffects.applyEffects(ctx, c, W, H, {
+      focus: true, focus_intensity: 0.25, focus_size: 1, focus_speed: 5,
+      focus_color: { r: 1, g: 1, b: 1, a: 1 }
+    }, 1.5);
+    const after = ctx.getImageData(0, 0, W, H).data;
+    const cx = W / 2, cy = H / 2;
+    const maxr = Math.hypot(cx, cy);
+    const bins = 20;
+    const cnt = new Array(bins).fill(0);
+    const tot = new Array(bins).fill(0);
+    let changed = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const d = Math.abs(after[i] - before[i]) + Math.abs(after[i + 1] - before[i + 1]) + Math.abs(after[i + 2] - before[i + 2]);
+        const rn = Math.hypot(x - cx, y - cy) / maxr;
+        const bi = Math.min(bins - 1, Math.floor(rn * bins));
+        tot[bi]++;
+        if (d > 10) { cnt[bi]++; changed++; }
+      }
+    }
+    const rows = [];
+    for (let i = 0; i < bins; i++) rows.push([i / bins, 100 * cnt[i] / tot[i]]);
+    fs.writeFileSync(path.join(__dirname, 'probe_focus_2d_out.json'),
+      JSON.stringify({ changedPct: 100 * changed / (W * H), bins: rows }, null, 2));
+    window.close();
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'probe_focus_2d_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

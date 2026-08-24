@@ -1,0 +1,9 @@
+﻿raw line.png sprites: 8
+{"path":"line.png","x":0,"y":0,"scale_x":20,"scale_y":4,"color":"#B22222","opacity":1,"time":"start:$note","layer":0,"order":999,"states":[{"sx":20,"sy":8,"o":0}]}
+{"path":"line.png","x":0,"y":0,"scale_x":20,"scale_y":4,"color":"#B22222","opacity":1,"time":"start:$note","layer":2,"order":999,"states":[{"sx":20,"sy":80,"o":0.4,"d":true}]}
+{"path":"line.png","x":0,"y":"noteY:0.333333","scale_x":20,"scale_y":4,"color":"#B22222","opacity":1,"time":"start:$note","layer":0,"order":999,"states":[{"sx":20,"sy":8,"o":0}]}
+{"path":"line.png","x":0,"y":"noteY:0.333333","scale_x":20,"scale_y":4,"color":"#B22222","opacity":1,"time":"start:$note","layer":2,"order":999,"states":[{"sx":20,"sy":80,"o":0.4,"d":true}]}
+{"path":"line.png","x":0,"y":"noteY:0.166666666","scale_x":20,"scale_y":4,"color":"#B22222","opacity":1,"time":"start:$note","layer":0,"order":999,"states":[{"sx":20,"sy":8,"o":0}]}
+{"path":"line.png","x":0,"y":"noteY:0.166666666","scale_x":20,"scale_y":4,"color":"#B22222","opacity":1,"time":"start:$note","layer":2,"order":999,"states":[{"sx":20,"sy":80,"o":0.4,"d":true}]}
+{"path":"line.png","x":0,"y":"noteY:0.75","scale_x":20,"scale_y":40,"color":"#FFFFFF","opacity":1,"time":"start:$note","layer":2,"order":999,"states":[{"sx":20,"sy":4,"o":0.4,"d":true}]}
+{"path":"line.png","x":0,"y":"noteY:0.25","scale_x":20,"scale_y":40,"color":"#FFFFFF","opacity":1,"time":"start:$note","layer":2,"order":999,"states":[{"sx":20,"sy":4,"o":0.4,"d":true}]}

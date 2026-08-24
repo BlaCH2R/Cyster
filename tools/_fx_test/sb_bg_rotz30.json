@@ -1,0 +1,24 @@
+{
+  "compiled": true,
+  "texts": [],
+  "sprites": [
+    {
+      "Id": "bg.rot",
+      "States": [
+        {
+          "Time": 0,
+          "Easing": 0,
+          "Path": "bg.jpg",
+          "FillWidth": true,
+          "RotZ": 30,
+          "Opacity": 1,
+          "Layer": 2
+        }
+      ]
+    }
+  ],
+  "videos": [],
+  "lines": [],
+  "controllers": [],
+  "note_controllers": []
+}

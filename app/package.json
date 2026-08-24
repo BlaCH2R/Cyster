@@ -1,0 +1,78 @@
+{
+  "name": "cyster",
+  "productName": "Cyster",
+  "version": "0.1.0-beta",
+  "description": "Cytoid 关卡 StoryBoard 可视化编辑工具（时间轴/素材/实时游戏预览/规范导出）",
+  "main": "main.js",
+  "author": "Cyster Team",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "pack": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest",
+    "playwright": "^1.62.1"
+  },
+  "build": {
+    "appId": "com.cyster.app",
+    "productName": "Cyster",
+    "directories": {
+      "output": "dist"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "BlaCH2R",
+        "repo": "Cyster",
+        "private": false,
+        "releaseType": "release"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "fileAssociations": [
+      {
+        "ext": "ctr",
+        "name": "Cyster 项目",
+        "description": "Cyster Project",
+        "icon": "assets/icon.ico",
+        "role": "Editor"
+      },
+      {
+        "ext": "ctdsber",
+        "name": "Cyster 项目（旧版）",
+        "description": "Cyster Project (legacy)",
+        "icon": "assets/icon.ico",
+        "role": "Editor"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Cyster"
+    }
+  },
+  "dependencies": {
+    "docx-preview": "^0.4.0",
+    "electron-updater": "^6.8.9"
+  }
+}

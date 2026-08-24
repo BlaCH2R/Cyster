@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>hold style test</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  try {
+    const out = { checks: [], ok: true };
+    const W = 400, H = 400;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const pv = new window.SBPreview.PreviewRenderer(c);
+    pv.mergedCtrl = {};
+    const info = pv.ctxInfo();
+    // Scanner sweeps from worldY -1 (start) to +1 (end) -> holdLen = 2*S.
+    pv.chart = { getScannerPositionY: (t) => (t <= 0 ? -1 : 1) };
+    const note = {
+      id: 1, type: 1, direction: 1,
+      start_time: 0, end_time: 10,
+      worldX: 0, worldY: 0,
+    };
+    const p = { x: W / 2, y: H / 2, worldX: 0, worldY: 0 };
+    const fill = { r: 0.21, g: 0.65, b: 1, a: 1 };
+
+    const check = (name, cond, detail) => {
+      out.checks.push({ name, pass: !!cond, detail });
+      if (!cond) out.ok = false;
+    };
+    const countDashes = (above) => {
+      const img = ctx.getImageData(0, 0, W, H).data;
+      let n = 0;
+      const y0 = above ? 0 : H / 2 + 1;
+      const y1 = above ? H / 2 - 1 : H;
+      for (let y = y0; y < y1; y += 2) {
+        const i = (y * W + W / 2) * 4;
+        // dashed bar pixels are light (white) or hold-colored, on black bg
+        if (img[i] > 60 || img[i + 1] > 60 || img[i + 2] > 60) n++;
+      }
+      return n;
+    };
+    const countColored = () => {
+      const img = ctx.getImageData(0, 0, W, H).data;
+      let n = 0;
+      for (let y = 0; y < H; y++) {
+        const i = (y * W + W / 2) * 4;
+        // hold blue fill: b clearly dominant
+        if (img[i + 2] > 100 && img[i + 2] > img[i] + 40 && img[i + 2] > img[i + 1] + 30) n++;
+      }
+      return n;
+    };
+
+    const draw = (holdDir, style, t) => {
+      pv.noteOverrides = { 1: { hold_dir: holdDir, style } };
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      pv.drawHoldBar(ctx, info, note, p, 40, fill, 1, t, false);
+    };
+
+    // direction +1, style 1, t=5 (progress 0.5): bar ABOVE the note, filled.
+    draw(1, 1, 5);
+    const upDashes = countDashes(true);
+    const downDashes = countDashes(false);
+    const colored1 = countColored();
+    check('dir+1 bar above note', upDashes > 4 && downDashes === 0,
+      `up=${upDashes} down=${downDashes}`);
+    check('dir+1 style1 has colored fill', colored1 > 2, `colored=${colored1}`);
+
+    // direction -1, style 1, t=5: bar BELOW the note.
+    draw(-1, 1, 5);
+    const upDashesN = countDashes(true);
+    const downDashesN = countDashes(false);
+    check('dir-1 bar below note', downDashesN > 4 && upDashesN === 0,
+      `up=${upDashesN} down=${downDashesN}`);
+
+    // style 2 at t=5 (progress 0.5): bar still present but no colored fill.
+    draw(1, 2, 5);
+    const s2Dashes = countDashes(true) + countDashes(false);
+    const colored2 = countColored();
+    check('style2 half-length bar present', s2Dashes > 1, `dashes=${s2Dashes}`);
+    check('style2 has no colored fill', colored2 === 0, `colored=${colored2}`);
+
+    // style 2 at t=10 (hold end): bar completely gone.
+    draw(1, 2, 10);
+    const s2End = countDashes(true) + countDashes(false);
+    check('style2 bar gone at hold end', s2End === 0, `dashes=${s2End}`);
+
+    // style 1 at t=10 still shows the full bar.
+    draw(1, 1, 10);
+    const s1End = countDashes(true) + countDashes(false);
+    check('style1 bar still visible at hold end', s1End > 4, `dashes=${s1End}`);
+
+    fs.writeFileSync(path.join(__dirname, 'test_hold_style_out.json'), JSON.stringify(out, null, 2));
+    window.close();
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'test_hold_style_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>parent trap test</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/easing.js"></script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  (async () => {
+    try {
+      const out = { checks: [], ok: true };
+      const W = 960, H = 540;
+      const check = (name, cond, detail) => {
+        out.checks.push({ name, pass: !!cond, detail: String(detail) });
+        if (!cond) out.ok = false;
+      };
+      const chart = new window.SBEngine.chart.Chart(JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: []
+      }), { screenRatio: 16 / 9 });
+      const pvCanvas = document.createElement('canvas');
+      pvCanvas.width = W;
+      pvCanvas.height = H;
+      const pv = new window.SBPreview.PreviewRenderer(pvCanvas);
+      pv.chart = chart;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({
+        sprites: [
+          { id: 'p', rot_x: 30, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' }, width: { value: 200, unit: 'stagex' }, height: { value: 200, unit: 'stagey' }, states: [{ time: 0, opacity: 1 }] },
+          { id: 'c', parent_id: 'p', x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' }, width: { value: 200, unit: 'stagex' }, height: { value: 200, unit: 'stagey' }, states: [{ time: 0, opacity: 1 }] },
+        ],
+      }, chart).compile();
+      pv.evaluate(0.5);
+      pv.mergedCtrl = { perspective: true, fov: 53.2 };
+      const info = pv.ctxInfo();
+      const spr = (id) => (pv.evalResult.sprites || []).find((s) => s.obj.id === id);
+      const rp = spr('p'), rc = spr('c');
+      const Mp = pv.stageMatrix(rp.obj, rp, info);
+      const Mc = pv.stageMatrix(rc.obj, rc, info);
+      const m3p = pv.stageMatrix3(rp.obj, rp, info);
+      const l3p = pv.stageLocal3(rp.from, info);
+      const projTop = pv.stageProjectPoint(m3p, -0.5 * 180, -0.5 * 180, info);
+      const projBot = pv.stageProjectPoint(m3p, -0.5 * 180, 0.5 * 180, info);
+      out.projDebug = {
+        local3_6: l3p[6],
+        m3_2: m3p[2], m3_6: m3p[6], m3_5: m3p[5],
+        sinNeg30: Math.sin(-30 * Math.PI / 180),
+        rotXRad: -(30 * Math.PI / 180),
+        projTop: { x: projTop.x, y: projTop.y, z: projTop.z },
+        projBot: { x: projBot.x, y: projBot.y, z: projBot.z },
+      };
+      out.matrices = {
+        parent: { a: Mp.a, b: Mp.b, c: Mp.c, d: Mp.d, e: Mp.e, f: Mp.f },
+        child: { a: Mc.a, b: Mc.b, c: Mc.c, d: Mc.d, e: Mc.e, f: Mc.f },
+      };
+      out.stateDebug = {
+        parentFrom: rp.from,
+        childFrom: rc.from,
+        perspective: info.perspective,
+        f: info.f,
+        S: info.S,
+        warpP: pv.spriteNeedsWarp(rp.obj, rp, info),
+        warpC: pv.spriteNeedsWarp(rc.obj, rc, info),
+      };
+      // Render both sprites (white tint on black) and measure the drawn box.
+      const tt = document.createElement('canvas');
+      tt.width = 4; tt.height = 4;
+      const tctx = tt.getContext('2d');
+      tctx.fillStyle = '#ffffff';
+      tctx.fillRect(0, 0, 4, 4);
+      const img = new Image();
+      img.src = tt.toDataURL();
+      await new Promise((res) => { img.onload = () => res(img); img.onerror = () => res(null); });
+      pv.imageCache['x.png'] = img;
+      const draw = (r, file) => {
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        r.from.path = 'x.png';
+        pv.drawStageObject(ctx, info, r, 'sprite', 1);
+        const data = ctx.getImageData(0, 0, W, H).data;
+        let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1, cnt = 0;
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            if (data[i + 3] > 40 && lum > 60) {
+              if (x < minX) minX = x; if (x > maxX) maxX = x;
+              if (y < minY) minY = y; if (y > maxY) maxY = y;
+              cnt++;
+            }
+          }
+        }
+        fs.writeFileSync(path.join(__dirname, file),
+          c.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), 'base64');
+        return { bw: maxX - minX + 1, bh: maxY - minY + 1, minX, minY, maxX, maxY, cnt };
+      };
+      const boxP = draw(rp, 'probe_parent_trap_p.png');
+      const boxC = draw(rc, 'probe_parent_trap_c.png');
+      out.boxes = { parent: boxP, child: boxC };
+      // A trapezoid has different top/bottom widths; an affine parallelogram
+      // has equal row widths. Measure the row widths at the top/middle/bottom.
+      const rowWidths = (r, file) => {
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        pv.drawStageObject(ctx, info, r, 'sprite', 1);
+        const data = ctx.getImageData(0, 0, W, H).data;
+        const widths = [];
+        for (let y = 0; y < H; y++) {
+          let lo = -1, hi = -1;
+          for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            if (data[i + 3] > 40 && lum > 60) {
+              if (lo < 0) lo = x;
+              hi = x;
+            }
+          }
+          if (lo >= 0) widths.push({ y, w: hi - lo + 1 });
+        }
+        return widths;
+      };
+      const wp = rowWidths(rp, '');
+      const wc = rowWidths(rc, '');
+      out.rowWidths = {
+        parent: { top: wp[0], mid: wp[Math.floor(wp.length / 2)], bottom: wp[wp.length - 1] },
+        child: { top: wc[0], mid: wc[Math.floor(wc.length / 2)], bottom: wc[wc.length - 1] },
+      };
+      const topP = wp[0].w, botP = wp[wp.length - 1].w;
+      const topC = wc[0].w, botC = wc[wc.length - 1].w;
+      // Observed native direction: a positive rot_x makes the TOP edge come
+      // nearer, so the trapezoid is WIDER at the top than at the bottom.
+      check('parent draws a trapezoid, wider at the top (native direction)',
+        Math.abs(topP - botP) > 8 && topP > botP, `top=${topP} bottom=${botP}`);
+      // A parented child inherits the parent's 3D rotation with the OPPOSITE
+      // depth direction: its trapezoid tilts the opposite way from directly
+      // giving the object its own rot_x (here: top NARROWER).
+      check('child inherits parent rotation with OPPOSITE depth direction',
+        Math.abs(topC - botC) > 8 && topC < botC,
+        `child top=${topC} bottom=${botC} parent top=${topP} bottom=${botP}`);
+      fs.writeFileSync(path.join(__dirname, 'probe_parent_trap_out.json'), JSON.stringify(out, null, 2));
+      window.close();
+    } catch (e) {
+      fs.writeFileSync(path.join(__dirname, 'probe_parent_trap_err.txt'), String(e && e.stack || e));
+      window.close();
+    }
+  })();
+</script>
+</body>
+</html>

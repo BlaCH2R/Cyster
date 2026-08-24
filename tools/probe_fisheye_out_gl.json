@@ -1,0 +1,21 @@
+{
+  "mode": "gl",
+  "neutral": {
+    "unchanged": false,
+    "dotX": 238,
+    "origDotX": 240,
+    "glUsed": 1
+  },
+  "barrel": {
+    "unchanged": false,
+    "dotX": 0,
+    "origDotX": 240,
+    "glUsed": 1
+  },
+  "pincushion": {
+    "unchanged": false,
+    "dotX": 0,
+    "origDotX": 240,
+    "glUsed": 1
+  }
+}

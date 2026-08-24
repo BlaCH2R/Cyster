@@ -1,0 +1,280 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>sprite warp perf probe</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/easing.js"></script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  try {
+    const sprite = document.createElement('canvas');
+    sprite.width = 800; sprite.height = 600;
+    const sctx = sprite.getContext('2d');
+    const g = sctx.createLinearGradient(0, 0, 800, 600);
+    g.addColorStop(0, '#ff8800');
+    g.addColorStop(1, '#4488ff');
+    sctx.fillStyle = g;
+    sctx.fillRect(0, 0, 800, 600);
+    const spriteImg = new Image();
+    const heartbeat = (msg) => {
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_perf_heartbeat.txt'), String(msg));
+    };
+    const watchdog = setTimeout(() => {
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_perf_err.txt'), 'watchdog timeout');
+      window.close();
+    }, 20000);
+    spriteImg.onload = () => {
+      try {
+      heartbeat('onload');
+      const W = 800, H = 600;
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const ctx = c.getContext('2d');
+      const origDraw = ctx.drawImage;
+      const pv = new window.SBPreview.PreviewRenderer(c);
+      pv.mergedCtrl = { perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10 };
+      const info = pv.ctxInfo();
+
+      const run = (count, rot, pass, noBlit) => {
+        if (noBlit) ctx.drawImage = () => {};
+        // Warm up once (also fills the source cache).
+        const warm = { id: 'w', kind: 'sprite', parentId: null };
+        pv.drawSpriteWarped(ctx, spriteImg, warm, {
+          from: { path: 'test.png', rot_x: rot, rot_y: 0, x: 0, y: 0, scale: 1, scale_x: 1, scale_y: 1 }, to: {}, t: 0,
+        }, info, 800, 600, 0.5, 0.5, { r: 1, g: 1, b: 1, a: 1 }, 1);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        const t0 = performance.now();
+        for (let i = 0; i < count; i++) {
+          const obj = { id: 's' + i, kind: 'sprite', parentId: null };
+          pv.drawSpriteWarped(ctx, spriteImg, obj, {
+            from: {
+              path: 'test.png',
+              rot_x: rot, rot_y: 0,
+              x: { value: (i % 5) - 2, unit: 'stagex' },
+              y: { value: Math.floor(i / 5) - 2, unit: 'stagey' },
+              scale: 1, scale_x: 1, scale_y: 1,
+            },
+            to: {}, t: 0,
+          }, info, 800, 600, 0.5, 0.5, { r: 1, g: 1, b: 1, a: 1 }, 1);
+        }
+        const t1 = performance.now();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        return {
+          count, pass, ms: +(t1 - t0).toFixed(2), perSpriteMs: +((t1 - t0) / count).toFixed(3),
+          warpMax: pv._warpMax, cacheSize: pv._warpCache.size, avgMs: +(pv._warpAvgMs || 0).toFixed(4),
+          rw: pv._warpCanvas ? pv._warpCanvas.width : 0,
+          rh: pv._warpCanvas ? pv._warpCanvas.height : 0,
+        };
+      };
+
+      // Isolate the rasterization loop: same 60 unique sprites but with the
+      // final blit stubbed, so the warp (scanline + bilinear) cost is visible.
+      heartbeat('warpOnly-start');
+      const warpOnly = {
+        rot44: {
+          one: run(1, 44, 1, true),
+          ten: run(10, 44, 1, true),
+          thirty: run(30, 44, 1, true),
+          sixty: run(60, 44, 1, true),
+        },
+      };
+      heartbeat('warpOnly-done');
+      ctx.drawImage = origDraw;
+      heartbeat('main-runs-start');
+      const out = {
+        warpOnly,
+        rot44: {
+          first: { one: run(1, 44, 1), ten: run(10, 44, 1), thirty: run(30, 44, 1), sixty: run(60, 44, 1) },
+          cached: { one: run(1, 44, 2), ten: run(10, 44, 2), thirty: run(30, 44, 2), sixty: run(60, 44, 2) },
+        },
+        rot0: {
+          first: { one: run(1, 0, 1), ten: run(10, 0, 1), thirty: run(30, 0, 1), sixty: run(60, 0, 1) },
+          cached: { one: run(1, 0, 2), ten: run(10, 0, 2), thirty: run(30, 0, 2), sixty: run(60, 0, 2) },
+        },
+      };
+      heartbeat('main-runs-done');
+
+      // Batch path: 60 warped sprites through drawStageLayer (one GL->2D
+      // readback per layer instead of one per sprite).
+      (() => {
+        const chart = new window.SBEngine.chart.Chart(JSON.stringify({
+          format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+          page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+          note_list: [],
+        }), { screenRatio: 16 / 9 });
+        const sprites = [];
+        for (let i = 0; i < 60; i++) {
+          sprites.push({
+            id: 's' + i, layer: 0, order: i, rot_x: 44,
+            x: { value: (i % 5) - 2, unit: 'stagex' },
+            y: { value: Math.floor(i / 5) - 2, unit: 'stagey' },
+            width: { value: 200, unit: 'stagex' }, height: { value: 200, unit: 'stagey' },
+            states: [{ time: 0, opacity: 1 }],
+          });
+        }
+        const bc = document.createElement('canvas');
+        bc.width = W; bc.height = H;
+        const bctx = bc.getContext('2d');
+        const bpv = new window.SBPreview.PreviewRenderer(bc);
+        bpv.chart = chart;
+        bpv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({ sprites }, chart).compile();
+        bpv.evaluate(0.5);
+        bpv.mergedCtrl = { perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10 };
+        const binfo = bpv.ctxInfo();
+        for (const r of bpv.evalResult.sprites) {
+          r.from.path = 'test.png';
+          bpv.imageCache['test.png'] = spriteImg;
+        }
+        const timeBatch = () => {
+          bctx.fillStyle = '#000';
+          bctx.fillRect(0, 0, W, H);
+          const t0 = performance.now();
+          bpv.drawStageLayer(bctx, binfo, 0, 1);
+          return +(performance.now() - t0).toFixed(2);
+        };
+        const warmBatch = timeBatch();
+        const ms = [];
+        for (let k = 0; k < 5; k++) ms.push(timeBatch());
+        out.batch = { warmMs: warmBatch, runsMs: ms, avgMs: +(ms.reduce((a, b) => a + b, 0) / ms.length).toFixed(2) };
+      })();
+      heartbeat('batch-done');
+
+      // Micro-benchmarks: isolate the per-operation costs.
+      heartbeat('micro-start');
+      (() => {
+        const micro = {};
+        const sw = 512, sh = 384;
+        const src = new Uint8ClampedArray(sw * sh * 4);
+        const rw = 96, rh = 54;
+        const small = document.createElement('canvas');
+        small.width = rw; small.height = rh;
+        const sctx2 = small.getContext('2d');
+        let t0 = performance.now();
+        for (let k = 0; k < 200; k++) {
+          const out2 = sctx2.createImageData(rw, rh);
+          void out2;
+        }
+        micro.createImageData200 = +(performance.now() - t0).toFixed(2);
+        const imgData = sctx2.createImageData(rw, rh);
+        t0 = performance.now();
+        for (let k = 0; k < 200; k++) sctx2.putImageData(imgData, 0, 0);
+        micro.putImageData200 = +(performance.now() - t0).toFixed(2);
+        // Raw inner-loop math (96x54 = 5184 px), 100 passes.
+        const uL = -400, uR = 400, vT = -300, vB = 300;
+        const uScale = sw / (uR - uL), vScale = sh / (vB - vT);
+        const inv0 = 0.0016695, inv1 = 0, inv2 = -0.66778, inv3 = 0, inv4 = 0.0023218, inv5 = -0.69653, inv6 = 0, inv7 = -2.694e-6, inv8 = 0.0024776;
+        const dup = inv0 * (800 / rw), dvp = inv3 * (800 / rw), dwp = inv6 * (800 / rw);
+        t0 = performance.now();
+        let acc = 0;
+        for (let k = 0; k < 100; k++) {
+          for (let ty = 0; ty < rh; ty++) {
+            const sy = (ty + 0.5);
+            const sx0 = (0.5);
+            let up = inv0 * sx0 + inv1 * sy + inv2;
+            let vp = inv3 * sx0 + inv4 * sy + inv5;
+            let wp = inv6 * sx0 + inv7 * sy + inv8;
+            for (let tx = 0; tx < rw; tx++) {
+              if (Math.abs(wp) > 1e-12) {
+                const u = up / wp;
+                if (u >= uL && u <= uR) {
+                  const v = vp / wp;
+                  if (v >= vT && v <= vB) {
+                    let px = u * uScale - uL * uScale;
+                    let py = v * vScale - vT * vScale;
+                    if (px < 0) px = 0; else if (px > sw - 1) px = sw - 1;
+                    if (py < 0) py = 0; else if (py > sh - 1) py = sh - 1;
+                    const x0p = px | 0, y0p = py | 0;
+                    const x1p = Math.min(sw - 1, x0p + 1), y1p = Math.min(sh - 1, y0p + 1);
+                    const fx = px - x0p, fy = py - y0p;
+                    const i00 = (y0p * sw + x0p) * 4;
+                    const i10 = (y0p * sw + x1p) * 4;
+                    const i01 = (y1p * sw + x0p) * 4;
+                    const i11 = (y1p * sw + x1p) * 4;
+                    const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy);
+                    const w01 = (1 - fx) * fy, w11 = fx * fy;
+                    const oi = (ty * rw + tx) * 4;
+                    acc += src[i00] * w00 + src[i10] * w10 + src[i01] * w01 + src[i11] * w11;
+                    acc += src[i00 + 1] * w00 + src[i10 + 1] * w10 + src[i01 + 1] * w01 + src[i11 + 1] * w11;
+                    acc += src[i00 + 2] * w00 + src[i10 + 2] * w10 + src[i01 + 2] * w01 + src[i11 + 2] * w11;
+                    acc += src[i00 + 3] * w00 + src[i10 + 3] * w10 + src[i01 + 3] * w01 + src[i11 + 3] * w11;
+                  }
+                }
+              }
+              up += dup; vp += dvp; wp += dwp;
+            }
+          }
+        }
+        micro.rawLoop100x = +(performance.now() - t0).toFixed(2);
+        micro.acc = acc;
+
+        // Setup-phase micro-benchmarks.
+        const obj = { id: 'probe.s', kind: 'sprite', parentId: null };
+        const r = {
+          from: { rot_x: 44, rot_y: 0, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' }, scale: 1, scale_x: 1, scale_y: 1 },
+          to: {}, t: 0,
+        };
+        t0 = performance.now();
+        let macc = 0;
+        for (let k = 0; k < 500; k++) {
+          const m3 = pv.stageMatrix3(obj, r, info);
+          macc += m3[0] + m3[12];
+        }
+        micro.stageMatrix3_500 = +(performance.now() - t0).toFixed(2);
+        micro.macc = macc;
+        const m3v = pv.stageMatrix3(obj, r, info);
+        t0 = performance.now();
+        for (let k = 0; k < 500; k++) {
+          const mKey = m3v[0].toFixed(4) + ',' + m3v[1].toFixed(4) + ',' + m3v[2].toFixed(4) + ',' + m3v[3].toFixed(4) + ',' +
+            m3v[4].toFixed(4) + ',' + m3v[5].toFixed(4) + ',' + m3v[6].toFixed(4) + ',' + m3v[7].toFixed(4) + ',' +
+            m3v[8].toFixed(4) + ',' + m3v[9].toFixed(4) + ',' + m3v[10].toFixed(4) + ',' + m3v[11].toFixed(4) + ',' +
+            m3v[12].toFixed(4) + ',' + m3v[13].toFixed(4) + ',' + m3v[14].toFixed(4) + ',' + m3v[15].toFixed(4);
+          void mKey;
+        }
+        micro.keyBuild500 = +(performance.now() - t0).toFixed(2);
+        const longKey = 'probe|255,255,255|800x600|0.5,0.5|800x600|599.1|' + m3v.map((v) => v.toFixed(4)).join(',');
+        const testMap = new Map();
+        testMap.set(longKey, { rw: 96, rh: 54 });
+        t0 = performance.now();
+        for (let k = 0; k < 5000; k++) testMap.get(longKey);
+        micro.mapGet5000 = +(performance.now() - t0).toFixed(2);
+        t0 = performance.now();
+        for (let k = 0; k < 2000; k++) {
+          const k2 = longKey + k;
+          testMap.set(k2, { rw: 96, rh: 54 });
+          testMap.delete(k2);
+        }
+        micro.mapSetDel2000 = +(performance.now() - t0).toFixed(2);
+        micro.cacheSizeNow = pv._warpCache.size;
+        out.micro = micro;
+      })();
+      heartbeat('micro-done');
+      out.finalState = { warpMax: pv._warpMax, cacheSize: pv._warpCache.size, srcCacheSize: pv._warpSourceCache.size };
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_perf_out.json'), JSON.stringify(out, null, 2));
+      clearTimeout(watchdog);
+      window.close();
+      } catch (e) {
+        fs.writeFileSync(path.join(__dirname, 'probe_sprite_perf_err.txt'), String(e && e.stack || e));
+        window.close();
+      }
+    };
+    spriteImg.onerror = () => {
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_perf_err.txt'), 'sprite load error');
+      window.close();
+    };
+    spriteImg.src = sprite.toDataURL('image/png');
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'probe_sprite_perf_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

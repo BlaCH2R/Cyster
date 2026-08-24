@@ -1,0 +1,171 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>sprite warp fix probe</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  try {
+    // Build a bright magenta test sprite with a white border and a center dot.
+    const sprite = document.createElement('canvas');
+    sprite.width = 400; sprite.height = 300;
+    const sctx = sprite.getContext('2d');
+    sctx.fillStyle = '#ff00ff';
+    sctx.fillRect(0, 0, 400, 300);
+    sctx.fillStyle = '#ffffff';
+    sctx.fillRect(0, 0, 400, 10);
+    sctx.fillRect(0, 290, 400, 10);
+    sctx.fillRect(0, 0, 10, 300);
+    sctx.fillRect(390, 0, 10, 300);
+    sctx.fillRect(190, 140, 20, 20);
+
+    const W = 800, H = 600;
+    function render(rot_x, rot_y, dw, dh, spriteImg) {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+      const pv = new window.SBPreview.PreviewRenderer(c);
+      pv.mergedCtrl = {
+        perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10,
+      };
+      const info = pv.ctxInfo();
+      const obj = { id: 'probe.s', kind: 'sprite', parentId: null };
+      const r = { from: { rot_x, rot_y, x: 0, y: 0, scale: 1, scale_x: 1, scale_y: 1 }, to: {}, t: 0 };
+      pv.drawSpriteWarped(ctx, spriteImg, obj, r, info, dw, dh, 0.5, 0.5, { r: 1, g: 1, b: 1, a: 1 }, 1);
+      const img = ctx.getImageData(0, 0, W, H).data;
+      let changed = 0, minX = W, minY = H, maxX = 0, maxY = 0;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4;
+          if (Math.abs(img[i] - 0) + Math.abs(img[i + 1] - 0) + Math.abs(img[i + 2] - 0) > 30) {
+            changed++;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      // Trapezoid check: top-row span vs bottom-row span of the magenta body.
+      let topSpan = 0, botSpan = 0;
+      const midRowTop = Math.max(0, Math.round(minY + (maxY - minY) * 0.15));
+      const midRowBot = Math.min(H - 1, Math.round(minY + (maxY - minY) * 0.85));
+      for (const row of [midRowTop, midRowBot]) {
+        let lo = W, hi = 0;
+        for (let x = 0; x < W; x++) {
+          const i = (row * W + x) * 4;
+          if (img[i] > 100 && img[i + 1] < 100 && img[i + 2] > 100) {
+            if (x < lo) lo = x;
+            if (x > hi) hi = x;
+          }
+        }
+        if (row === midRowTop) topSpan = hi - lo;
+        else botSpan = hi - lo;
+      }
+      return { changed, bbox: [minX, minY, maxX, maxY], topSpan, botSpan };
+    }
+
+    const out = { checks: [] };
+    const add = (name, res, expectVisible) => {
+      const visible = res.changed > 50;
+      const pass = expectVisible ? visible : !visible;
+      out.checks.push({ name, ...res, expectVisible, pass });
+      if (!pass) out.ok = false;
+    };
+
+    const spriteImg = new Image();
+    spriteImg.onload = () => {
+      // Debug: dump per-row color profile for the rot_x=44 800x600 render.
+      (() => {
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+        const pv = new window.SBPreview.PreviewRenderer(c);
+        pv.mergedCtrl = { perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10 };
+        const info = pv.ctxInfo();
+        const obj = { id: 'probe.s', kind: 'sprite', parentId: null };
+        const r = { from: { rot_x: 44, rot_y: 0, x: 0, y: 0, scale: 1, scale_x: 1, scale_y: 1 }, to: {}, t: 0 };
+        pv.drawSpriteWarped(ctx, spriteImg, obj, r, info, 800, 600, 0.5, 0.5, { r: 1, g: 1, b: 1, a: 1 }, 1);
+        const img = ctx.getImageData(0, 0, W, H).data;
+        const profile = [];
+        for (const row of [0, 69, 200, 390, 458]) {
+          let magenta = 0, white = 0, other = 0;
+          for (let x = 0; x < W; x++) {
+            const i = (row * W + x) * 4;
+            const r0 = img[i], g0 = img[i + 1], b0 = img[i + 2];
+            if (r0 > 100 && g0 < 100 && b0 > 100) magenta++;
+            else if (r0 > 200 && g0 > 200 && b0 > 200) white++;
+            else if (r0 + g0 + b0 > 30) other++;
+          }
+          profile.push({ row, magenta, white, other });
+        }
+        out.debug = profile;
+      })();
+
+      // Previously-exploding cases must now render a visible (clipped) part.
+      // Exact rot_y=-450 is a zero-area edge-on projection (nothing visible is
+      // correct there), so this one only checks that it no longer explodes.
+      add('2000x1500 rot_y=-450 no explosion (edge-on line)', render(0, -450, 2000, 1500, spriteImg), false);
+      add('2000x1500 t~0.32 rot_x=0.5 rot_y=-447 (was 9.09M px)', render(0.48, -447.2, 2000, 1500, spriteImg), true);
+      add('2000x1500 rot_x=44 rot_y=-1440 (was 8k px off-screen)', render(44, -1440, 2000, 1500, spriteImg), true);
+      // Normal tilts still render trapezoids.
+      const r44 = render(44, 0, 800, 600, spriteImg);
+      add('800x600 rot_x=44 visible', r44, true);
+      out.checks[out.checks.length - 1].trapezoid = r44.topSpan > r44.botSpan;
+      const r20 = render(20, 0, 800, 600, spriteImg);
+      add('800x600 rot_x=20 visible', r20, true);
+      out.checks[out.checks.length - 1].trapezoid = r20.topSpan > r20.botSpan;
+      const r0 = render(0, 0, 800, 600, spriteImg);
+      add('800x600 no rotation visible', r0, true);
+      out.checks[out.checks.length - 1].trapezoid = Math.abs(r0.topSpan - r0.botSpan) < 4;
+
+      // Banding render for visual inspection (bg photo, rot_x=44).
+      const img2 = new Image();
+      img2.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+        const pv = new window.SBPreview.PreviewRenderer(c);
+        pv.mergedCtrl = {
+          perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10,
+        };
+        const info = pv.ctxInfo();
+        const obj = { id: 'probe.s', kind: 'sprite', parentId: null };
+        const r = { from: { rot_x: 44, rot_y: 0, x: 0, y: 0, scale: 1, scale_x: 1, scale_y: 1 }, to: {}, t: 0 };
+        pv.drawSpriteWarped(ctx, img2, obj, r, info, 800, 600, 0.5, 0.5, { r: 1, g: 1, b: 1, a: 1 }, 1);
+        fs.writeFileSync(path.join(__dirname, 'probe_sprite_warp_banding.png'),
+          c.toDataURL('image/png').split(',')[1], 'base64');
+        fs.writeFileSync(path.join(__dirname, 'probe_sprite_warp_out.json'), JSON.stringify(out, null, 2));
+        window.close();
+      };
+      img2.onerror = () => {
+        fs.writeFileSync(path.join(__dirname, 'probe_sprite_warp_err.txt'), 'bg img load error');
+        fs.writeFileSync(path.join(__dirname, 'probe_sprite_warp_out.json'), JSON.stringify(out, null, 2));
+        window.close();
+      };
+      img2.src = 'file:///' + path.join(__dirname, '_player_backup', 'bg.jpg').replace(/\\/g, '/');
+    };
+    spriteImg.onerror = () => {
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_warp_err.txt'), 'sprite img load error');
+      window.close();
+    };
+    spriteImg.src = sprite.toDataURL('image/png');
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'probe_sprite_warp_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

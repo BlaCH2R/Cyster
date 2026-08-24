@@ -1,0 +1,39 @@
+# ---- 依赖与构建产物 ----
+node_modules/
+app/node_modules/
+app/dist/
+
+# ---- 本地测试项目 / 第三方参考素材（不随源码公开）----
+项目/
+sb实例/
+reference/
+build/
+TigerHix/
+.vite/
+
+# ---- 根目录的安装包与文档源文件（app/assets 内的内置副本除外）----
+/*.exe
+/*.docx
+/*.xlsx
+/*.psd
+/*.mhtml
+/封面*.jpg
+/Avatar.jpg
+
+# ---- 根目录误存/历史文件 ----
+/--no-sandbox
+/app.js
+
+# ---- 探针运行产物 ----
+tools/*_out.json
+tools/*_shot.png
+tools/run_cmd_last_log.txt
+tools/*_log.txt
+tools/run_probe_last_log.txt
+tools/fx_visual_debug.txt
+tools/**/*.png
+
+# ---- 通用 ----
+*.log
+.DS_Store
+Thumbs.db

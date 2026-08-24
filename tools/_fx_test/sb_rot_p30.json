@@ -1,0 +1,24 @@
+{
+  "compiled": true,
+  "texts": [],
+  "sprites": [],
+  "videos": [],
+  "lines": [],
+  "controllers": [
+    {
+      "Id": "cam.rot",
+      "States": [
+        {
+          "Time": 0,
+          "Easing": 0,
+          "Perspective": true,
+          "Fov": 53.2,
+          "RotX": 30,
+          "RotY": 0,
+          "RotZ": 0
+        }
+      ]
+    }
+  ],
+  "note_controllers": []
+}

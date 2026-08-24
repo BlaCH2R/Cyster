@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>nc parent real test</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/easing.js"></script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  try {
+    const step = (s) => fs.appendFileSync(path.join(__dirname, 'test_nc_parent_real_steps.txt'), s + '\n');
+    const out = { checks: [], ok: true };
+    const W = 960, H = 540;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const pv = new window.SBPreview.PreviewRenderer(c);
+    pv.mergedCtrl = {};
+
+    const DIR = 'V:/cytoid storyboarder/项目/测试：robotic girl/ロボティックガール';
+    step('read chart');
+    const chartText = fs.readFileSync(path.join(DIR, 'chart.base.txt'), 'utf8');
+    step('read storyboard');
+    const compiledJson = JSON.parse(fs.readFileSync(path.join(DIR, 'storyboard_compiled.json'), 'utf8'));
+
+    step('parse chart');
+    const chart = new window.SBEngine.chart.Chart(chartText, { screenRatio: 16 / 9 });
+    pv.chart = chart;
+    step('fromCompiled');
+    const editable = window.SBEngine.storyboard.fromCompiled(compiledJson);
+    step('compile');
+    pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(editable, chart).compile();
+    step('compiled done: nc=' + pv.compiled.noteControllers.length + ' sprites=' + pv.compiled.sprites.length);
+
+    const check = (name, cond, detail) => {
+      out.checks.push({ name, pass: !!cond, detail });
+      if (!cond) out.ok = false;
+    };
+
+    const nc = pv.compiled.noteControllers.find((n) => n.id === 'mega_dad');
+    check('note controller mega_dad exists', !!nc, nc ? `note=${nc.note}` : 'missing');
+    if (nc) check('mega_dad note is number', typeof nc.note === 'number', `type=${typeof nc.note}`);
+
+    const note1456 = chart.noteById(1456);
+    check('chart note 1456 exists', !!note1456, note1456 ? `start=${note1456.start_time}` : 'missing');
+    const earlyExit = (msg) => {
+      out.details = { early: msg };
+      fs.writeFileSync(path.join(__dirname, 'test_nc_parent_real_out.json'), JSON.stringify(out, null, 2));
+      window.close();
+    };
+    if (note1456) {
+      const t = note1456.start_time + 0.01;
+      step('evaluate at ' + t);
+      pv.evaluate(t);
+      step('evaluated sprites=' + (pv.evalResult.sprites || []).length);
+      const big = (pv.evalResult.sprites || []).find((s) => s.obj.id === 'big_dad');
+      check('big_dad evaluated', !!big, big ? `parentId=${big.obj.parentId}` : 'missing');
+      if (big) {
+        check('big_dad parentId resolved', big.obj.parentId === 'mega_dad', `parentId=${big.obj.parentId}`);
+
+        const info = pv.ctxInfo();
+        const M = pv.stageMatrix(big.obj, big, info);
+        const noteP = pv.noteScreenPos(note1456, info);
+        const dx = Math.abs(M.e - noteP.x);
+        const dy = Math.abs(M.f - noteP.y);
+        check('big_dad matrix anchored at note 1456', dx < 1 && dy < 1,
+          `M=(${M.e.toFixed(1)},${M.f.toFixed(1)}) note=(${noteP.x.toFixed(1)},${noteP.y.toFixed(1)})`);
+
+        // Override sanity: the note controller must actually override the note.
+        const ovr = pv.noteOverrides && pv.noteOverrides[1456];
+        check('note 1456 has override', !!ovr, ovr ? JSON.stringify(ovr).slice(0, 120) : 'missing');
+
+        out.details = {
+          noteStart: note1456.start_time,
+          megaStates: nc ? nc.states.length : -1,
+          bigStates: big.obj.states.length,
+        };
+      } else {
+        earlyExit('big_dad missing from evaluated sprites');
+      }
+    } else {
+      earlyExit('note 1456 missing from chart');
+    }
+    if (!out.details) out.details = {};
+    fs.writeFileSync(path.join(__dirname, 'test_nc_parent_real_out.json'), JSON.stringify(out, null, 2));
+    window.close();
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'test_nc_parent_real_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

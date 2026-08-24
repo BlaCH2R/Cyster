@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>note id opacity test</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/easing.js"></script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  try {
+    const out = { checks: [], ok: true };
+    const check = (name, cond, detail) => {
+      out.checks.push({ name, pass: !!cond, detail });
+      if (!cond) out.ok = false;
+    };
+    const W = 320, H = 180;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const pv = new window.SBPreview.PreviewRenderer(c);
+    pv.ui.showNoteIds = true;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    // Note opacity 0.05: the ID must stay fully opaque.
+    pv.drawNoteId(ctx, { id: 412 }, 80, 0.05, 0, { r: 1, g: 1, b: 1 });
+    const img = ctx.getImageData(0, 0, W, H).data;
+    let maxR = 0, maxA = 0;
+    for (let i = 0; i < img.length; i += 4) {
+      if (img[i] > maxR) maxR = img[i];
+      if (img[i + 3] > maxA) maxA = img[i + 3];
+    }
+    out.maxR = maxR; out.maxAlpha = maxA;
+    check('noteID fully opaque despite note opacity 0.05', maxR >= 250 && maxA >= 250,
+      `maxR=${maxR} maxAlpha=${maxA}`);
+
+    // Toggle off -> no ID pixels at all.
+    pv.ui.showNoteIds = false;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    pv.drawNoteId(ctx, { id: 412 }, 80, 1, 0, { r: 1, g: 1, b: 1 });
+    const img2 = ctx.getImageData(0, 0, W, H).data;
+    let maxR2 = 0, maxA2 = 0;
+    for (let i = 0; i < img2.length; i += 4) {
+      if (img2[i] > maxR2) maxR2 = img2[i];
+      if (img2[i + 3] > maxA2) maxA2 = img2[i + 3];
+    }
+    out.offMaxR = maxR2; out.offMaxAlpha = maxA2;
+    check('noteID hidden when toggle off', maxR2 <= 4 && maxA2 <= 4, `maxR=${maxR2} maxAlpha=${maxA2}`);
+
+    // Full drawNote path: a note_controller sets ONE note's opacity to 0
+    // (opacity_multiplier 0). The body must be skipped, but the note ID must
+    // still render at full opacity while the toggle is on.
+    const chartText = JSON.stringify({
+      format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+      page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+      note_list: [{
+        page_index: 0, type: 0, id: 5, tick: 480, x: 0.5,
+        has_sibling: false, hold_tick: 0, next_id: 0, is_forward: false, approach_rate: 1,
+      }],
+    });
+    const pv2 = new window.SBPreview.PreviewRenderer(document.createElement('canvas'));
+    pv2.ui.showNoteIds = true;
+    pv2.chart = new window.SBEngine.chart.Chart(chartText, { screenRatio: 16 / 9 });
+    const sb = {
+      note_controllers: [{
+        id: 'nc_hide',
+        note: 5,
+        states: [{ time: 0, opacity_multiplier: 0 }],
+      }],
+    };
+    pv2.compiled = new window.SBEngine.storyboard.StoryboardCompiler(sb, pv2.chart).compile();
+    const t2 = 0.3;
+    pv2.time = t2;
+    pv2.mergedCtrl = {};
+    pv2.evaluate(t2);
+    out.ovr0 = pv2.noteOverrides[5];
+    const note5 = pv2.chart.noteById(5);
+    const c2 = document.createElement('canvas');
+    c2.width = W; c2.height = H;
+    const ctx2 = c2.getContext('2d');
+    ctx2.setTransform(1, 0, 0, 1, 0, 0);
+    ctx2.clearRect(0, 0, W, H);
+    const info2 = pv2.ctxInfo();
+    pv2.drawNote(ctx2, info2, note5, 1, null, null, t2);
+    const img3 = ctx2.getImageData(0, 0, W, H).data;
+    let maxR3 = 0, maxA3 = 0;
+    for (let i = 0; i < img3.length; i += 4) {
+      if (img3[i] > maxR3) maxR3 = img3[i];
+      if (img3[i + 3] > maxA3) maxA3 = img3[i + 3];
+    }
+    out.zeroOvrMaxR = maxR3; out.zeroOvrMaxAlpha = maxA3;
+    check('noteID shown when single-note opacity_multiplier = 0',
+      maxR3 >= 200 && maxA3 >= 200, `maxR=${maxR3} maxAlpha=${maxA3}`);
+
+    fs.writeFileSync(path.join(__dirname, 'test_noteid_opacity_out.json'), JSON.stringify(out, null, 2));
+    window.close();
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'test_noteid_opacity_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

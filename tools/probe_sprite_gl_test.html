@@ -1,0 +1,281 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>sprite GL warp vs CPU reference</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/easing.js"></script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  try {
+    const W = 800, H = 600;
+    const out = { checks: [], ok: true };
+    const watchdog = setTimeout(() => {
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_gl_err.txt'), 'watchdog timeout');
+      window.close();
+    }, 25000);
+    const check = (name, cond, detail) => {
+      out.checks.push({ name, pass: !!cond, detail: String(detail) });
+      if (!cond) out.ok = false;
+    };
+
+    // Test sprite: magenta body, white border, one 50% alpha half, red dot.
+    const sprite = document.createElement('canvas');
+    sprite.width = 400; sprite.height = 300;
+    const sctx = sprite.getContext('2d');
+    sctx.globalAlpha = 1;
+    sctx.fillStyle = '#ff00ff';
+    sctx.fillRect(0, 0, 400, 300);
+    sctx.fillStyle = '#ffffff';
+    sctx.fillRect(0, 0, 400, 10);
+    sctx.fillRect(0, 290, 400, 10);
+    sctx.fillRect(0, 0, 10, 300);
+    sctx.fillRect(390, 0, 10, 300);
+    sctx.globalAlpha = 0.5;
+    sctx.fillStyle = '#00ff00';
+    sctx.fillRect(200, 100, 200, 100);
+    sctx.globalAlpha = 1;
+    sctx.fillStyle = '#ff0000';
+    sctx.fillRect(190, 140, 20, 20);
+
+    function render(rFrom, color, alpha, forceCPU, path) {
+      const origGet = HTMLCanvasElement.prototype.getContext;
+      if (forceCPU) {
+        HTMLCanvasElement.prototype.getContext = function (type) {
+          if (String(type).indexOf('webgl') >= 0) return null;
+          return origGet.apply(this, arguments);
+        };
+      }
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#101010';
+      ctx.fillRect(0, 0, W, H);
+      const pv = new window.SBPreview.PreviewRenderer(c);
+      pv._warpMax = 4096; // CPU reference renders at full resolution
+      pv.mergedCtrl = { perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10 };
+      const info = pv.ctxInfo();
+      const obj = { id: path, kind: 'sprite', parentId: null };
+      const r = { from: { path, rot_x: rFrom.rot_x, rot_y: rFrom.rot_y, x: 0, y: 0, scale: 1, scale_x: 1, scale_y: 1 }, to: {}, t: 0 };
+      pv.drawSpriteWarped(ctx, spriteImg, obj, r, info, 800, 600, 0.5, 0.5, color, alpha);
+      HTMLCanvasElement.prototype.getContext = origGet;
+      return { pv, ctx, c };
+    }
+
+    const spriteImg = new Image();
+    spriteImg.onload = () => {
+      // Numeric check: CPU projection vs the GL vertex-shader math for the
+      // rot_x=44 case (fresh CPU renderer, no WebGL involved).
+      (() => {
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const pv = new window.SBPreview.PreviewRenderer(c);
+        pv.mergedCtrl = { perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10 };
+        const info = pv.ctxInfo();
+        const obj = { id: 'dbg', kind: 'sprite', parentId: null };
+        const r = { from: { path: 'dbg.png', rot_x: 44, rot_y: 0, x: 0, y: 0, scale: 1, scale_x: 1, scale_y: 1 }, to: {}, t: 0 };
+        const m3 = pv.stageMatrix3(obj, r, info);
+        const f = info.f, W2 = W / 2, H2 = H / 2;
+        const x0 = m3[12], x1 = m3[0], x2 = m3[4];
+        const y0 = m3[13], y1 = m3[1], y2 = m3[5];
+        const z0 = m3[14], z1 = m3[2], z2 = m3[6];
+        const uL = -400, uR = 400, vT = -300, vB = 300;
+        const rows = [];
+        for (const [u, v] of [[uL, vT], [uR, vT], [uL, vB], [uR, vB]]) {
+          const X = x0 + x1 * u + x2 * v;
+          const Y = y0 + y1 * u + y2 * v;
+          const Z = z0 + z1 * u + z2 * v;
+          const w = f + Z;
+          const cpuX = W2 + f * (X - W2) / w;
+          const cpuY = H2 + f * (Y - H2) / w;
+          const ndcX = 2 * f * (X - W2) / (W * w);
+          const ndcY = -2 * f * (Y - H2) / (H * w);
+          const glX = W2 + ndcX * W / 2;
+          const glY = H2 - ndcY * H / 2;
+          rows.push({ u, v, cpuX: +cpuX.toFixed(2), cpuY: +cpuY.toFixed(2), glX: +glX.toFixed(2), glY: +glY.toFixed(2) });
+        }
+        out.shaderCheck = rows;
+      })();
+
+      const cases = [
+        { name: 'rot_x=44 opaque', from: { rot_x: 44, rot_y: 0 }, color: { r: 1, g: 1, b: 1, a: 1 }, alpha: 1 },
+        { name: 'rot_x=-20 opaque', from: { rot_x: -20, rot_y: 0 }, color: { r: 1, g: 1, b: 1, a: 1 }, alpha: 1 },
+        { name: 'red tint', from: { rot_x: 30, rot_y: 0 }, color: { r: 1, g: 0, b: 0, a: 1 }, alpha: 1 },
+        { name: 'half opacity', from: { rot_x: 20, rot_y: 0 }, color: { r: 1, g: 1, b: 1, a: 1 }, alpha: 0.6 },
+        { name: 'rot_y edge-on clip', from: { rot_x: 0.5, rot_y: -447.2 }, color: { r: 1, g: 1, b: 1, a: 1 }, alpha: 1 },
+      ];
+      for (const cs of cases) {
+        const gl = render(cs.from, cs.color, cs.alpha, false, cs.name.replace(/\s/g, '_') + '.png');
+        const cpu = render(cs.from, cs.color, cs.alpha, true, cs.name.replace(/\s/g, '_') + '.png');
+        if (cs.name === 'rot_x=44 opaque') {
+          fs.writeFileSync(path.join(__dirname, 'probe_gl_rot44_gl.png'),
+            gl.c.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), 'base64');
+          fs.writeFileSync(path.join(__dirname, 'probe_gl_rot44_cpu.png'),
+            cpu.c.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), 'base64');
+        }
+        const gd = gl.ctx.getImageData(0, 0, W, H).data;
+        const cd = cpu.ctx.getImageData(0, 0, W, H).data;
+        let diffPx = 0, maxDiff = 0, glPx = 0, cpuPx = 0;
+        for (let i = 0; i < gd.length; i += 4) {
+          if (gd[i + 3] > 20) glPx++;
+          if (cd[i + 3] > 20) cpuPx++;
+          const d = Math.max(Math.abs(gd[i] - cd[i]), Math.abs(gd[i + 1] - cd[i + 1]), Math.abs(gd[i + 2] - cd[i + 2]), Math.abs(gd[i + 3] - cd[i + 3]));
+          if (d > maxDiff) maxDiff = d;
+          if (d > 16) diffPx++;
+        }
+        const total = W * H;
+        // Sub-pixel edge anti-aliasing differs between the GL rasterizer and
+        // the CPU scanline path, so allow a small edge-only tolerance.
+        check(cs.name + ': GL vs CPU close',
+          diffPx < total * 0.02 && maxDiff <= 255,
+          `diffPx=${diffPx} (${(100 * diffPx / total).toFixed(3)}%) maxDiff=${maxDiff} glPx=${glPx} cpuPx=${cpuPx}`);
+      }
+
+      // Parented child (inverted depth) through the GL path.
+      (() => {
+        const chart = new window.SBEngine.chart.Chart(JSON.stringify({
+          format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+          page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+          note_list: [],
+        }), { screenRatio: 16 / 9 });
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#101010';
+        ctx.fillRect(0, 0, W, H);
+        const pv = new window.SBPreview.PreviewRenderer(c);
+        pv.chart = chart;
+        pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({
+          sprites: [
+            { id: 'p', rot_x: 30, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' }, width: { value: 200, unit: 'stagex' }, height: { value: 200, unit: 'stagey' }, states: [{ time: 0, opacity: 1 }] },
+            { id: 'c', parent_id: 'p', x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' }, width: { value: 200, unit: 'stagex' }, height: { value: 200, unit: 'stagey' }, states: [{ time: 0, opacity: 1 }] },
+          ],
+        }, chart).compile();
+        pv.evaluate(0.5);
+        pv.mergedCtrl = { perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10 };
+        const info = pv.ctxInfo();
+        const rc = (pv.evalResult.sprites || []).find((s) => s.obj.id === 'c');
+        rc.from.path = 'child.png';
+        pv.imageCache['child.png'] = spriteImg;
+        pv.drawStageObject(ctx, info, rc, 'sprite', 1);
+        const d = ctx.getImageData(0, 0, W, H).data;
+        let topW = 0, botW = 0, topY = -1, botY = -1;
+        for (let y = 0; y < H; y++) {
+          let lo = -1, hi = -1;
+          for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            if (d[i] > 60 && d[i + 2] > 60 && d[i + 3] > 60) {
+              if (lo < 0) lo = x;
+              hi = x;
+            }
+          }
+          if (lo >= 0) {
+            if (topY < 0) { topY = y; topW = hi - lo + 1; }
+            botY = y; botW = hi - lo + 1;
+          }
+        }
+        // Child of a stage parent inherits the parent's full 3D transform
+        // (Unity transform hierarchy): same tilt direction -> bottom WIDER
+        // (rot_x=30 makes the parent's bottom edge nearer, engine-verified).
+        check('GL parented child inherits parent tilt (bottom wider)',
+          Math.abs(topW - botW) > 8 && topW < botW, `top=${topW} bottom=${botW}`);
+      })();
+
+      // Batch path: multiple overlapping warped sprites in one layer through
+      // drawStageLayer (GL batch) vs the full-res CPU reference.
+      (() => {
+        const chart = new window.SBEngine.chart.Chart(JSON.stringify({
+          format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+          page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+          note_list: [],
+        }), { screenRatio: 16 / 9 });
+        const sb = {
+          sprites: [
+            { id: 'a', layer: 0, order: 0, rot_x: 30, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' }, width: { value: 240, unit: 'stagex' }, height: { value: 240, unit: 'stagey' }, states: [{ time: 0, opacity: 1 }] },
+            { id: 'b', layer: 0, order: 1, rot_x: -15, x: { value: 1.2, unit: 'stagex' }, y: { value: 0.5, unit: 'stagey' }, width: { value: 200, unit: 'stagex' }, height: { value: 200, unit: 'stagey' }, color: { r: 0, g: 0.3, b: 1, a: 1 }, states: [{ time: 0, opacity: 0.5 }] },
+          ],
+        };
+        const renderBatch = (forceCPU) => {
+          const origGet = HTMLCanvasElement.prototype.getContext;
+          if (forceCPU) {
+            HTMLCanvasElement.prototype.getContext = function (type) {
+              if (String(type).indexOf('webgl') >= 0) return null;
+              return origGet.apply(this, arguments);
+            };
+          }
+          const c = document.createElement('canvas');
+          c.width = W; c.height = H;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#101010';
+          ctx.fillRect(0, 0, W, H);
+          const pv = new window.SBPreview.PreviewRenderer(c);
+          pv._warpMax = 4096;
+          pv.chart = chart;
+          pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(sb, chart).compile();
+          pv.evaluate(0.5);
+          pv.mergedCtrl = { perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10 };
+          const info = pv.ctxInfo();
+          for (const id of ['a', 'b']) {
+            const rr = (pv.evalResult.sprites || []).find((s) => s.obj.id === id);
+            rr.from.path = id + '.png';
+            pv.imageCache[id + '.png'] = spriteImg;
+          }
+          pv.drawStageLayer(ctx, info, 0, 1);
+          HTMLCanvasElement.prototype.getContext = origGet;
+          return { pv, ctx, c };
+        };
+        const glB = renderBatch(false);
+        const cpuB = renderBatch(true);
+        fs.writeFileSync(path.join(__dirname, 'probe_gl_batch_gl.png'),
+          glB.c.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), 'base64');
+        fs.writeFileSync(path.join(__dirname, 'probe_gl_batch_cpu.png'),
+          cpuB.c.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), 'base64');
+        // Raw GL canvas content (readPixels is bottom-up; canvas y is flipped).
+        const wgl = glB.pv._warpGL;
+        const raw = new Uint8Array(W * H * 4);
+        wgl.gl.readPixels(0, 0, W, H, wgl.gl.RGBA, wgl.gl.UNSIGNED_BYTE, raw);
+        const rawAt = (x, y) => {
+          const gy = H - 1 - y;
+          const i = (gy * W + x) * 4;
+          return [raw[i], raw[i + 1], raw[i + 2], raw[i + 3]];
+        };
+        out.batchDebug = {
+          glCanvasSize: [wgl.canvas.width, wgl.canvas.height],
+          rawAt320_300: rawAt(320, 300),
+          rawAt400_300: rawAt(400, 300),
+          finalAt320_300: glB.ctx.getImageData(320, 300, 1, 1).data.slice(0, 4),
+          cpuAt320_300: cpuB.ctx.getImageData(320, 300, 1, 1).data.slice(0, 4),
+        };
+        const gd = glB.ctx.getImageData(0, 0, W, H).data;
+        const cd = cpuB.ctx.getImageData(0, 0, W, H).data;
+        let diffPx = 0;
+        for (let i = 0; i < gd.length; i += 4) {
+          const d = Math.max(Math.abs(gd[i] - cd[i]), Math.abs(gd[i + 1] - cd[i + 1]), Math.abs(gd[i + 2] - cd[i + 2]), Math.abs(gd[i + 3] - cd[i + 3]));
+          if (d > 16) diffPx++;
+        }
+        check('batch (2 overlapping sprites, one semi-transparent) vs CPU',
+          diffPx < W * H * 0.02, `diffPx=${diffPx} (${(100 * diffPx / (W * H)).toFixed(3)}%)`);
+      })();
+
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_gl_out.json'), JSON.stringify(out, null, 2));
+      clearTimeout(watchdog);
+      window.close();
+    };
+    spriteImg.onerror = () => {
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_gl_err.txt'), 'sprite load error');
+      window.close();
+    };
+    spriteImg.src = sprite.toDataURL('image/png');
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'probe_sprite_gl_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

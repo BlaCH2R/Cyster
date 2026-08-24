@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>sprite batch alpha comparison</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/easing.js"></script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  try {
+    const W = 800, H = 600;
+    const out = { checks: [], ok: true };
+    const check = (name, cond, detail) => {
+      out.checks.push({ name, pass: !!cond, detail: String(detail) });
+      if (!cond) out.ok = false;
+    };
+
+    // Texture with alpha bands (opaque / 75% / 50% / 25% / 0%) + a soft edge.
+    const sprite = document.createElement('canvas');
+    sprite.width = 500; sprite.height = 500;
+    const sctx = sprite.getContext('2d');
+    const bands = [1, 0.75, 0.5, 0.25, 0];
+    const colors = ['#ff00ff', '#00ff88', '#ff8800', '#4488ff', '#ff0000'];
+    for (let b = 0; b < bands.length; b++) {
+      sctx.globalAlpha = bands[b];
+      sctx.fillStyle = colors[b];
+      sctx.fillRect(0, b * 100, 500, 100);
+    }
+    sctx.globalAlpha = 1;
+
+    function renderBatch(sb, forceCPU) {
+      const origGet = HTMLCanvasElement.prototype.getContext;
+      if (forceCPU) {
+        HTMLCanvasElement.prototype.getContext = function (type) {
+          if (String(type).indexOf('webgl') >= 0) return null;
+          return origGet.apply(this, arguments);
+        };
+      }
+      const chart = new window.SBEngine.chart.Chart(JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [],
+      }), { screenRatio: 16 / 9 });
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#404040';
+      ctx.fillRect(0, 0, W, H);
+      const pv = new window.SBPreview.PreviewRenderer(c);
+      pv._warpMax = 4096;
+      pv.chart = chart;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(sb, chart).compile();
+      pv.evaluate(0.5);
+      pv.mergedCtrl = { perspective: true, fov: 53.2, size: 5, xPx: 0, yPx: 0, zPx: -10 };
+      const info = pv.ctxInfo();
+      for (const r of pv.evalResult.sprites) {
+        r.from.path = 'a.png';
+        pv.imageCache['a.png'] = spriteImg;
+      }
+      pv.drawStageLayer(ctx, info, 0, 1);
+      HTMLCanvasElement.prototype.getContext = origGet;
+      return { pv, ctx, c };
+    }
+
+    const spriteImg = new Image();
+    spriteImg.onload = () => {
+      const cases = [
+        { name: 'two sprites, b opacity 0.5 no tint', bOp: 0.5, tint: null },
+        { name: 'two sprites, b opacity 0.35 red tint', bOp: 0.35, tint: { r: 1, g: 0.2, b: 0.2, a: 1 } },
+        { name: 'two sprites, b opacity 1 color.a 0.6', bOp: 1, tint: { r: 1, g: 1, b: 1, a: 0.6 } },
+      ];
+      for (const cs of cases) {
+        const sb = {
+          sprites: [
+            { id: 'a', layer: 0, order: 0, rot_x: 30, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' }, width: { value: 280, unit: 'stagex' }, height: { value: 280, unit: 'stagey' }, states: [{ time: 0, opacity: 1 }] },
+            { id: 'b', layer: 0, order: 1, rot_x: -12, x: { value: 1.1, unit: 'stagex' }, y: { value: 0.4, unit: 'stagey' }, width: { value: 240, unit: 'stagex' }, height: { value: 240, unit: 'stagey' }, color: cs.tint, states: [{ time: 0, opacity: cs.bOp }] },
+          ],
+        };
+        const glB = renderBatch(sb, false);
+        const cpuB = renderBatch(sb, true);
+        const gd = glB.ctx.getImageData(0, 0, W, H).data;
+        const cd = cpuB.ctx.getImageData(0, 0, W, H).data;
+        let diffPx = 0, maxA = 0, maxR = 0;
+        for (let i = 0; i < gd.length; i += 4) {
+          const dr = Math.abs(gd[i] - cd[i]);
+          const da = Math.abs(gd[i + 3] - cd[i + 3]);
+          if (dr > maxR) maxR = dr;
+          if (da > maxA) maxA = da;
+          if (Math.max(dr, Math.abs(gd[i + 1] - cd[i + 1]), Math.abs(gd[i + 2] - cd[i + 2]), da) > 12) diffPx++;
+        }
+        const total = W * H;
+        check(cs.name + ': batch GL vs CPU close',
+          diffPx < total * 0.015 && maxA <= 12,
+          `diffPx=${diffPx} (${(100 * diffPx / total).toFixed(3)}%) maxR=${maxR} maxA=${maxA}`);
+      }
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_alpha_batch_out.json'), JSON.stringify(out, null, 2));
+      window.close();
+    };
+    spriteImg.onerror = () => {
+      fs.writeFileSync(path.join(__dirname, 'probe_sprite_alpha_batch_err.txt'), 'sprite load error');
+      window.close();
+    };
+    spriteImg.src = sprite.toDataURL('image/png');
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'probe_sprite_alpha_batch_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>line world probe</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/easing.js"></script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  (async () => {
+    try {
+      const out = { checks: [], ok: true };
+      const W = 960, H = 540;
+      const check = (name, cond, detail) => {
+        out.checks.push({ name, pass: !!cond, detail: String(detail) });
+        if (!cond) out.ok = false;
+      };
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      const mk = () => {
+        const pv = new window.SBPreview.PreviewRenderer(canvas);
+        pv.chart = new window.SBEngine.chart.Chart(JSON.stringify({
+          format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+          page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+          note_list: []
+        }), { screenRatio: 16 / 9 });
+        return pv;
+      };
+      const evalLine = (pv, pos) => {
+        pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({
+          lines: [{ id: 'L', pos, states: [{ time: 0, opacity: 1, width: { value: 1, unit: 'world' } }] }],
+        }, pv.chart).compile();
+        pv.evaluate(0.5);
+        const r = (pv.evalResult.lines || []).find((e) => e.obj.id === 'L');
+        return pv.linePointsToPx(r.from, pv.ctxInfo());
+      };
+
+      // notex/notey endpoints are unchanged (world via chart conversion).
+      {
+        const pv = mk();
+        const pts = evalLine(pv, [
+          { x: { value: 0.5, unit: 'notex' }, y: { value: 0.5, unit: 'notey' } },
+        ]);
+        out.noteCenter = pts[0];
+        // The note field center is not the raw canvas center: the chart's
+        // vertical offset shifts it (convertChartYToScreenY(0.5) ~ -0.237
+        // world units). Assert against the direct chart conversion + camera
+        // projection so the check is chart-geometry agnostic.
+        const expect = pv.worldToPx(
+          pv.chart.convertChartXToScreenX(0.5),
+          pv.chart.convertChartYToScreenY(0.5),
+          pv.ctxInfo()
+        );
+        check('notex:0.5/notey:0.5 line endpoint at canvas center',
+          Math.abs(pts[0].x - expect.x) < 1 && Math.abs(pts[0].y - expect.y) < 1,
+          `(${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}) expected (${expect.x.toFixed(1)},${expect.y.toFixed(1)})`);
+      }
+
+      // stagex/stagey endpoints are WORLD offsets: stagex:800 / stagey:600
+      // fill the screen (half-width / half-height each way), NOT the
+      // canvas-fixed 400/300 used by sprites.
+      {
+        const pv = mk();
+        const pts = evalLine(pv, [
+          { x: { value: 800, unit: 'stagex' }, y: { value: 600, unit: 'stagey' } },
+          { x: { value: 400, unit: 'stagex' }, y: { value: 300, unit: 'stagey' } },
+        ]);
+        out.stage = pts;
+        check('stagex:800/stagey:600 -> top-right corner',
+          Math.abs(pts[0].x - W) < 1 && Math.abs(pts[0].y - 0) < 1,
+          `(${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)})`);
+        check('stagex:400/stagey:300 -> quarter offset',
+          Math.abs(pts[1].x - (W / 2 + W / 4)) < 1 && Math.abs(pts[1].y - (H / 2 - H / 4)) < 1,
+          `(${pts[1].x.toFixed(1)},${pts[1].y.toFixed(1)}) expected (${(W / 2 + W / 4).toFixed(1)},${(H / 2 - H / 4).toFixed(1)})`);
+      }
+
+      // world-unit endpoints stay raw world values.
+      {
+        const pv = mk();
+        const pts = evalLine(pv, [
+          { x: { value: 10, unit: 'world' }, y: { value: 0, unit: 'world' } },
+        ]);
+        out.world = pts[0];
+        check('world x=10 -> 10 * S px right of center (S=54)',
+          Math.abs(pts[0].x - (W / 2 + 10 * 54)) < 1 && Math.abs(pts[0].y - H / 2) < 1,
+          `(${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)})`);
+      }
+
+      // stage endpoints are camera-affected: with rot_y, the endpoint x
+      // projection must differ from the no-rotation position (world object),
+      // unlike the old canvas-fixed behavior.
+      {
+        const pv = mk();
+        const pts = evalLine(pv, [
+          { x: { value: 800, unit: 'stagex' }, y: { value: 0, unit: 'stagey' } },
+        ]);
+        const flat = pts[0].x;
+        pv.evaluate(0.5);
+        // Evaluate resets mergedCtrl from the storyboard (no controllers
+        // here), so apply the camera override AFTER evaluating.
+        pv.mergedCtrl = { size: 5, rot_x: 0, rot_y: 30, rot_z: 0, xPx: 0, yPx: 0, zPx: -10, perspective: false };
+        const r = (pv.evalResult.lines || []).find((e) => e.obj.id === 'L');
+        const tilted = pv.linePointsToPx(r.from, pv.ctxInfo())[0];
+        out.rotated = { flat: flat.toFixed(2), tilted: tilted.x.toFixed(2) };
+        check('stage endpoint follows camera rot_y (world object)',
+          Math.abs(tilted.x - flat) > 5,
+          `flat=${flat.toFixed(2)} tilted=${tilted.x.toFixed(2)}`);
+      }
+
+      // Line width is world units through the CURRENT camera: size 5 -> 54px,
+      // size 2.5 -> 108px (scales with ortho, not chart.baseSize).
+      const measureWidth = (size) => {
+        const pv = mk();
+        pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({
+          controllers: [{ id: 'cam', size, states: [{ time: 0 }] }],
+          lines: [{
+            id: 'L', pos: [
+              { x: { value: -100, unit: 'stagex' }, y: { value: 0, unit: 'stagey' } },
+              { x: { value: 100, unit: 'stagex' }, y: { value: 0, unit: 'stagey' } },
+            ],
+            states: [{ time: 0, opacity: 1, width: { value: 1, unit: 'world' } }],
+          }],
+        }, pv.chart).compile();
+        pv.evaluate(0.5);
+        const info = pv.ctxInfo();
+        const r = (pv.evalResult.lines || []).find((e) => e.obj.id === 'L');
+        const cnv = document.createElement('canvas');
+        cnv.width = W; cnv.height = H;
+        const ctx = cnv.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        pv.drawLine(ctx, info, r, 1);
+        const d = ctx.getImageData(0, 0, W, H).data;
+        let minY = 1e9, maxY = -1;
+        for (let y = 0; y < H; y++) {
+          const i = (y * W + Math.floor(W / 2)) * 4;
+          const lum = (d[i] + d[i + 1] + d[i + 2]) / 3;
+          if (d[i + 3] > 20 && lum > 20) { if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        }
+        return maxY >= minY ? maxY - minY + 1 : 0;
+      };
+      const w54 = measureWidth(5);
+      const w108 = measureWidth(2.5);
+      out.width = { size5: w54, size2_5: w108 };
+      check('line width 1 world unit = 54px at size 5',
+        Math.abs(w54 - 54) <= 3, `got ${w54}`);
+      check('line width doubles (108px) when size halves to 2.5',
+        Math.abs(w108 - 108) <= 3, `got ${w108}`);
+
+      fs.writeFileSync(path.join(__dirname, 'probe_line_world_out.json'), JSON.stringify(out, null, 2));
+      window.close();
+    } catch (e) {
+      fs.writeFileSync(path.join(__dirname, 'probe_line_world_err.txt'), String(e && e.stack || e));
+      window.close();
+    }
+  })();
+</script>
+</body>
+</html>

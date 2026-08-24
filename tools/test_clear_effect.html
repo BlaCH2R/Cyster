@@ -1,0 +1,1096 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>clear effect + parent rot test</title></head>
+<body>
+<script>
+  const fs = require('fs');
+  const path = require('path');
+</script>
+<script src="../app/src/engine/json.js"></script>
+<script src="../app/src/engine/easing.js"></script>
+<script src="../app/src/engine/storyboard.js"></script>
+<script src="../app/src/engine/chart.js"></script>
+<script src="../app/src/engine/colors.js"></script>
+<script src="../app/src/renderer/preview.js"></script>
+<script>
+  (async () => {
+  try {
+    const out = { checks: [], ok: true };
+    const check = (name, cond, detail) => {
+      out.checks.push({ name, pass: !!cond, detail: String(detail) });
+      if (!cond) out.ok = false;
+    };
+    const W = 960, H = 540;
+    const mkChart = (text) => new window.SBEngine.chart.Chart(text, { screenRatio: 16 / 9 });
+    const mkPv = () => {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const pv = new window.SBPreview.PreviewRenderer(c);
+      pv.mergedCtrl = {};
+      return pv;
+    };
+
+    // ----------------------------------------------------------------
+    // 1) Hold style=2: clear effect must be placed on the hold BODY
+    // (note position), not the scanner Y.
+    // ----------------------------------------------------------------
+    {
+      const chartText = JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [{
+          page_index: 0, type: 1, id: 5, tick: 480, x: 0.5,
+          has_sibling: false, hold_tick: 120, next_id: 0, is_forward: false, approach_rate: 1
+        }],
+      });
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      const raw = {
+        note_controllers: [{
+          id: 'nc5', note: 5,
+          states: [{ time: 0, style: 2 }],
+        }],
+      };
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(raw, chart).compile();
+      const note = chart.noteById(5);
+      const tClear = note.end_time + 0.05;
+      pv.time = tClear;
+      pv.evaluate(tClear);
+      const ovr = pv.noteOverrides && pv.noteOverrides[5];
+      check('style=2 override present', !!ovr && ovr.style === 2, ovr ? JSON.stringify(ovr) : 'missing');
+
+      // Instrument worldToPx to record the y passed for the effect.
+      const calls = [];
+      const origW2P = pv.worldToPx.bind(pv);
+      pv.worldToPx = (wx, wy, info, wz) => { calls.push({ wx, wy, wz }); return origW2P(wx, wy, info, wz); };
+      const info = pv.ctxInfo();
+      const before = calls.length;
+      pv.drawClearEffects(pv.ctx, info, tClear);
+      const fxCall = calls[calls.length - 1];
+      const fxCalls = calls.slice(before);
+      const notePos = pv.noteScreenPos(note, info);
+      const scanY = chart.getScannerPositionY(note.end_time);
+      check('effect uses note Y for style=2',
+        fxCalls.length === 1 && Math.abs(fxCalls[0].wy - note.worldY) < 1e-6,
+        fxCalls.length === 1 ? `wy=${fxCalls[0].wy} noteY=${note.worldY} scanY=${scanY}` : `calls=${fxCalls.length}`);
+      check('effect NOT at scanner Y for style=2',
+        fxCalls.length === 1 && Math.abs(fxCalls[0].wy - scanY) > 1e-6,
+        fxCalls.length === 1 ? `wy=${fxCalls[0].wy} scanY=${scanY}` : `calls=${fxCalls.length}`);
+      check('effect screen center matches note body',
+        fxCalls.length === 1 &&
+        Math.abs(origW2P(fxCalls[0].wx, fxCalls[0].wy, info).x - notePos.x) < 1 &&
+        Math.abs(origW2P(fxCalls[0].wx, fxCalls[0].wy, info).y - notePos.y) < 1,
+        `fx=(${fxCalls.length === 1 ? origW2P(fxCalls[0].wx, fxCalls[0].wy, info).x.toFixed(1) : 0},${fxCalls.length === 1 ? origW2P(fxCalls[0].wx, fxCalls[0].wy, info).y.toFixed(1) : 0}) note=(${notePos.x.toFixed(1)},${notePos.y.toFixed(1)})`);
+
+      // Default style (no override) keeps the scanner position.
+      const pv2 = mkPv();
+      pv2.chart = chart;
+      pv2.compiled = new window.SBEngine.storyboard.StoryboardCompiler({ note_controllers: [] }, chart).compile();
+      pv2.time = tClear;
+      pv2.evaluate(tClear);
+      const calls2 = [];
+      pv2.worldToPx = (wx, wy, info) => { calls2.push({ wx, wy }); return origW2P.call(pv2, wx, wy, info); };
+      const info2 = pv2.ctxInfo();
+      pv2.drawClearEffects(pv2.ctx, info2, tClear);
+      const fxCall2 = calls2[calls2.length - 1];
+      check('default style effect stays at scanner Y',
+        fxCall2 && Math.abs(fxCall2.wy - scanY) < 1e-6,
+        fxCall2 ? `wy=${fxCall2.wy} scanY=${scanY}` : 'no call');
+    }
+
+    // ----------------------------------------------------------------
+    // 2) Parent rot_x / rot_y must reach the controlled target and
+    // children (target_id merge + parent_id chains).
+    // ----------------------------------------------------------------
+    {
+      const chart = mkChart(JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: []
+      }));
+      const pv = mkPv();
+      pv.chart = chart;
+      const raw = {
+        sprites: [
+          {
+            id: 'parent', rot_x: 45,
+            states: [{ time: 0, opacity: 1, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' } }],
+          },
+          {
+            id: 'child',
+            parent_id: 'parent',
+            states: [{ time: 0, opacity: 1, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' } }],
+          },
+          {
+            id: 'target',
+            states: [{ time: 0, opacity: 1, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' } }],
+          },
+          {
+            id: 'ctrl', target_id: 'target', rot_x: 45,
+            states: [{ time: 0, opacity: 1, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' } }],
+          },
+          {
+            id: 'childOfCtrl',
+            parent_id: 'ctrl',
+            states: [{ time: 0, opacity: 1, x: { value: 0, unit: 'stagex' }, y: { value: 0, unit: 'stagey' } }],
+          },
+        ],
+      };
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(raw, chart).compile();
+      pv.evaluate(0.5);
+      const info = pv.ctxInfo();
+      const cos45 = Math.cos(45 * Math.PI / 180);
+      const M = (id) => {
+        const r = (pv.evalResult.sprites || []).find((s) => s.obj.id === id);
+        return r ? pv.stageMatrix(r.obj, r, info) : null;
+      };
+      const mParent = M('parent');
+      const mChild = M('child');
+      const mTarget = M('target');
+      const mChildOfCtrl = M('childOfCtrl');
+      check('parent matrix foreshortens Y by cos45',
+        mParent && Math.abs(Math.abs(mParent.d) - cos45) < 0.01,
+        mParent ? `d=${mParent.d.toFixed(4)}` : 'no parent');
+      check('child inherits parent rot_x (Y scale)',
+        mChild && Math.abs(Math.abs(mChild.d) - cos45) < 0.01,
+        mChild ? `d=${mChild.d.toFixed(4)}` : 'no child');
+      check('target receives controller rot_x',
+        mTarget && Math.abs(Math.abs(mTarget.d) - cos45) < 0.01,
+        mTarget ? `d=${mTarget.d.toFixed(4)}` : 'no target');
+      check('child of controller inherits rot_x',
+        mChildOfCtrl && Math.abs(Math.abs(mChildOfCtrl.d) - cos45) < 0.01,
+        mChildOfCtrl ? `d=${mChildOfCtrl.d.toFixed(4)}` : 'no childOfCtrl');
+      // rot_z also propagates through the parent chain.
+      const pv2 = mkPv();
+      pv2.chart = chart;
+      pv2.compiled = new window.SBEngine.storyboard.StoryboardCompiler({
+        sprites: [
+          { id: 'p', rot_z: 90, states: [{ time: 0, opacity: 1 }] },
+          { id: 'c', parent_id: 'p', states: [{ time: 0, opacity: 1 }] },
+        ],
+      }, chart).compile();
+      pv2.evaluate(0.5);
+      const mC = (pv2.evalResult.sprites || []).find((s) => s.obj.id === 'c');
+      const M2 = pv2.stageMatrix(mC.obj, mC, info);
+      check('child inherits parent rot_z (a≈0)',
+        Math.abs(M2.a) < 0.01 && Math.abs(M2.b) > 0.99,
+        `a=${M2.a.toFixed(4)} b=${M2.b.toFixed(4)}`);
+    }
+
+    // ----------------------------------------------------------------
+    // 3) Note clear effects must render BELOW every note body.
+    // ----------------------------------------------------------------
+    {
+      const chartText = JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [
+          { page_index: 0, type: 0, id: 1, tick: 480, x: 0.5, has_sibling: false, hold_tick: 0, next_id: 0, is_forward: false, approach_rate: 1 },
+          { page_index: 0, type: 3, id: 2, tick: 720, x: 0.5, has_sibling: false, hold_tick: 0, next_id: 0, is_forward: false, approach_rate: 1 },
+        ],
+      });
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({ sprites: [] }, chart).compile();
+      pv.time = 0.35;
+      pv.evaluate(0.35);
+      const order = [];
+      const wrap = (name, fn) => (...a) => { order.push(name); return fn(...a); };
+      pv.drawHoldBars = wrap('holdbar', pv.drawHoldBars.bind(pv));
+      pv.drawNote = wrap('note', pv.drawNote.bind(pv));
+      pv.drawClearEffects = wrap('fx', pv.drawClearEffects.bind(pv));
+      const info = pv.ctxInfo();
+      pv.drawWorld(pv.ctx, info, {});
+      const iFx = order.indexOf('fx');
+      const iFirstNote = order.indexOf('note');
+      check('fx drawn before first note body', iFx >= 0 && iFirstNote >= 0 && iFx < iFirstNote,
+        `order=${order.join('>')}`);
+    }
+
+    // ----------------------------------------------------------------
+    // 4) Real robotic-girl map: parented sprites with own rot_x and
+    // note_controller parents (parent_id -> note_controller).
+    // ----------------------------------------------------------------
+    {
+      const dir = 'V:/cytoid storyboarder/项目/测试：robotic girl/ロボティックガール';
+      const chartText = fs.readFileSync(path.join(dir, 'chart.base.txt'), 'utf8');
+      const sbText = fs.readFileSync(path.join(dir, 'storyboard_compiled.json'), 'utf8');
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.levelDir = dir;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(
+        window.SBEngine.storyboard.fromCompiled(JSON.parse(sbText)), chart).compile();
+      const t = 192.4;
+      pv.time = t;
+      pv.evaluate(t);
+      const info = pv.ctxInfo();
+      const spr = (id) => (pv.evalResult.sprites || []).find((s) => s.obj.id === id);
+      const bd = spr('big_dad');
+      const zd = spr('zdfthbae.ztv');
+      check('real map: big_dad evaluated', !!bd, bd ? `from.rot_x=${bd.from.rot_x}` : 'missing');
+      check('real map: zdfthbae.ztv evaluated', !!zd, zd ? `from.rot_x=${zd.from.rot_x} parent=${zd.obj.parentId}` : 'missing');
+      if (bd) {
+        const M = pv.stageMatrix(bd.obj, bd, info);
+        const cos45 = Math.cos(45 * Math.PI / 180);
+        check('real map: big_dad matrix foreshortened by own rot_x',
+          Math.abs(Math.abs(M.d) - cos45) < 0.05,
+          `d=${M.d.toFixed(4)} cos45=${cos45.toFixed(4)}`);
+      }
+      if (zd) {
+        const M = pv.stageMatrix(zd.obj, zd, info);
+        const cos45 = Math.cos(45 * Math.PI / 180);
+        check('real map: zdfthbae matrix foreshortened by own rot_x',
+          Math.abs(Math.abs(M.d) - cos45) < 0.05,
+          `d=${M.d.toFixed(4)} cos45=${cos45.toFixed(4)}`);
+        // The note controller parent must resolve to note 1078.
+        const nc = pv.compiled.noteControllers.find((n) => n.id === 'hold_1078');
+        check('real map: hold_1078 note controller exists', !!nc,
+          nc ? `note=${nc.note} states=${nc.states.length}` : 'missing');
+        if (nc) {
+          const note = chart.noteById(1078);
+          check('real map: note 1078 exists', !!note, note ? `type=${note.type} start=${note.start_time}` : 'missing');
+          if (note) {
+            const ovr = pv.noteOverrides && pv.noteOverrides[1078];
+            check('real map: note 1078 has rot_x override (45)', !!ovr && ovr.rot_x === 45,
+              ovr ? JSON.stringify(ovr) : 'missing');
+            const np = pv.notePos(note, info);
+            const M = pv.stageMatrix(zd.obj, zd, info);
+            // The child's own local Y=-50 stagey offsets it 45px down on the
+            // 540px-tall canvas, on top of the parent note's position.
+            const expectedY = np.y + 50 / 600 * H;
+            check('real map: zdfthbae anchored at note 1078 position + local offset',
+              Math.abs(M.e - np.x) < 4 && Math.abs(M.f - expectedY) < 4,
+              `M=(${M.e.toFixed(1)},${M.f.toFixed(1)}) note=(${np.x.toFixed(1)},${np.y.toFixed(1)}) expectedY=${expectedY.toFixed(1)}`);
+          }
+        }
+      }
+
+      // Pixel render: the shadow sprite zdfthbae.ztv has its own RotX=45 so
+      // its rendered box must be y-foreshortened (height ≈ width * cos45).
+      // Load shadow.png into the cache and draw only that sprite.
+      const loadImg = (rel, p) => {
+        const buf = fs.readFileSync(path.join(dir, rel));
+        const b64 = buf.toString('base64');
+        const img = new Image();
+        img.src = 'data:image/png;base64,' + b64;
+        return new Promise((res) => { img.onload = () => res(img); img.onerror = () => res(null); });
+      };
+      const shadowImg = await loadImg('shadow.png', dir);
+      check('real map: shadow.png loaded', !!shadowImg, shadowImg ? `${shadowImg.naturalWidth}x${shadowImg.naturalHeight}` : 'load failed');
+      if (shadowImg) {
+        pv.imageCache['shadow.png'] = shadowImg;
+        // Load the background + note assets so a full scene render works.
+        try {
+          const bg = await loadImg('bg.jpg', dir);
+          if (bg) pv.imageCache['bg.jpg'] = bg;
+        } catch (e3) {}
+        const full = document.createElement('canvas');
+        full.width = W; full.height = H;
+        const fctx = full.getContext('2d');
+        const savedCtx = pv.ctx;
+        pv.ctx = fctx;
+        pv.effectsEnabled = false;
+        pv.time = t;
+        pv.evaluate(t);
+        pv.render(fctx);
+        pv.ctx = savedCtx;
+        try {
+          fs.writeFileSync(path.join(__dirname, 'test_clear_effect_scene.png'),
+            full.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), 'base64');
+        } catch (e4) {}
+        const canvas2 = document.createElement('canvas');
+        canvas2.width = W; canvas2.height = H;
+        const ctx2 = canvas2.getContext('2d');
+        ctx2.fillStyle = '#000';
+        ctx2.fillRect(0, 0, W, H);
+        pv.drawStageObject(ctx2, info, zd, 'sprite', 1);
+        // shadow.png is a black texture, so a pixel box on a black canvas is
+        // meaningless; the matrix d component already proves the y-squash.
+        const Mz = pv.stageMatrix(zd.obj, zd, info);
+        const cos45 = Math.cos(45 * Math.PI / 180);
+        check('real map: rendered shadow y-foreshortened via matrix',
+          Math.abs(Math.abs(Mz.d) - cos45) < 0.05,
+          `d=${Mz.d.toFixed(4)} cos45=${cos45.toFixed(4)}`);
+        try {
+          const fs2 = require('fs');
+          fs2.writeFileSync(path.join(__dirname, 'test_clear_effect_shot.png'),
+            canvas2.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), 'base64');
+        } catch (e2) {}
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // 5) Compiled round-trip: export -> import must preserve parent_id /
+    // target_id and rot_x on the parented/controller objects.
+    // ----------------------------------------------------------------
+    {
+      const chart = mkChart(JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: []
+      }));
+      const editable = {
+        sprites: [
+          { id: 'parent', rot_x: 40, rot_y: 30, rot_z: 20, states: [{ time: 0, opacity: 1 }] },
+          { id: 'child', parent_id: 'parent', rot_x: 10, states: [{ time: 0, opacity: 1 }] },
+          { id: 'target', states: [{ time: 0, opacity: 1 }] },
+          { id: 'ctrl', target_id: 'target', rot_x: 25, states: [{ time: 0, opacity: 1 }] },
+        ],
+      };
+      const compiledJson = window.SBEngine.storyboard.toCompiled(editable, chart);
+      const back = window.SBEngine.storyboard.fromCompiled(compiledJson);
+      const find = (arr, id) => (arr || []).find((x) => x.id === id);
+      const p = find(back.sprites, 'parent');
+      const c = find(back.sprites, 'child');
+      const t = find(back.sprites, 'target');
+      const ctrl = find(back.sprites, 'ctrl');
+      check('roundtrip: parent rot_x/y/z kept', p && p.rot_x === 40 && p.rot_y === 30 && p.rot_z === 20,
+        p ? `rot_x=${p.rot_x} rot_y=${p.rot_y} rot_z=${p.rot_z}` : 'missing');
+      check('roundtrip: child parent_id + rot_x kept', c && c.parent_id === 'parent' && c.rot_x === 10,
+        c ? `parent_id=${c.parent_id} rot_x=${c.rot_x}` : 'missing');
+      check('roundtrip: controller target_id + rot_x kept', ctrl && ctrl.target_id === 'target' && ctrl.rot_x === 25,
+        ctrl ? `target_id=${ctrl.target_id} rot_x=${ctrl.rot_x}` : 'missing');
+      check('roundtrip: target exists', !!t, t ? 'ok' : 'missing');
+    }
+
+    // ----------------------------------------------------------------
+    // 6) Delusion real map: child (wave_669) of rotdad (RotZ) must orbit the
+    // parent's center as the parent rotates (stage parent chain).
+    // ----------------------------------------------------------------
+    {
+      const dir = 'V:/cytoid storyboarder/项目/测试：delusion/Delusion';
+      const chartText = fs.readFileSync(path.join(dir, 'chart.base.txt'), 'utf8');
+      const sbText = fs.readFileSync(path.join(dir, 'storyboard_compiled.json'), 'utf8');
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.levelDir = dir;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(
+        window.SBEngine.storyboard.fromCompiled(JSON.parse(sbText)), chart).compile();
+      const t = 104.0;
+      pv.time = t;
+      pv.evaluate(t);
+      const info = pv.ctxInfo();
+      const spr = (id) => (pv.evalResult.sprites || []).find((s) => s.obj.id === id);
+      const rd = spr('rotdad');
+      const wv = spr('wave_670');
+      check('delusion: rotdad evaluated', !!rd, rd ? `rot_z=${rd.from.rot_z}` : 'missing');
+      check('delusion: wave_670 evaluated (child of rotdad)', !!wv && wv.obj.parentId === 'rotdad',
+        wv ? `parent=${wv.obj.parentId} x=${wv.from.x && wv.from.x.value}` : 'missing');
+      check('delusion: wave_670 not in destroyed set', !!wv && !pv.evalResult.destroyed.has('wave_670'),
+        pv.evalResult.destroyed ? `destroyed has rotdad=${pv.evalResult.destroyed.has('rotdad')} has scale_dad=${pv.evalResult.destroyed.has('scale_dad')}` : 'no set');
+      if (rd && wv) {
+        const Mrd = pv.stageMatrix(rd.obj, rd, info);
+        const Mwv = pv.stageMatrix(wv.obj, wv, info);
+        // wave_669's local X is -50 stagex. Rotated by rotdad's rot_z around
+        // rotdad's center, its offset should be R(rotZ) * (-50, 0).
+        // Stage rot_z is negated to match Unity's counterclockwise-positive
+        // convention (same as notes), so the orbit uses -rot_z.
+        const rz = -(rd.from.rot_z != null ? rd.from.rot_z : 0) * Math.PI / 180;
+        // wave_670's local X interpolates -50 -> 800 (map sweep) and the
+        // chain scale_dad(1.5x) -> rotdad(rot_z) applies to it, so the
+        // offset = 1.5 * x rotated by rotdad's rot_z around its center.
+        const xLocal = (wv.from.x && typeof wv.from.x.value === 'number') ? wv.from.x.value : -50;
+        const xPx = xLocal / 800 * W * 1.5;
+        const expectedDx = xPx * Math.cos(rz);
+        const expectedDy = xPx * Math.sin(rz); // canvas y-down
+        // Apply the wave's matrix to its local origin -> world canvas pos.
+        const px0 = Mwv.e, py0 = Mwv.f;
+        // rotdad center on canvas:
+        const cx = Mrd.e, cy = Mrd.f;
+        const dx = px0 - cx, dy = py0 - cy;
+        check('delusion: wave orbits rotdad center by rot_z',
+          Math.abs(dx - expectedDx) < 12 && Math.abs(dy - expectedDy) < 12,
+          `actual=(${dx.toFixed(1)},${dy.toFixed(1)}) expected=(${expectedDx.toFixed(1)},${expectedDy.toFixed(1)}) rz=${rz.toFixed(3)} xPx=${xPx.toFixed(1)}`);
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // 7) Real map: note_controller rot_x must visibly foreshorten the NOTE
+    // body (the note is the controller's control target).
+    // ----------------------------------------------------------------
+    {
+      const dir = 'V:/cytoid storyboarder/项目/测试：robotic girl/ロボティックガール';
+      const chartText = fs.readFileSync(path.join(dir, 'chart.base.txt'), 'utf8');
+      const sbText = fs.readFileSync(path.join(dir, 'storyboard_compiled.json'), 'utf8');
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.levelDir = dir;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(
+        window.SBEngine.storyboard.fromCompiled(JSON.parse(sbText)), chart).compile();
+      const t = 192.3;
+      pv.time = t;
+      pv.evaluate(t);
+      const note = chart.noteById(1078);
+      const ovr = pv.noteOverrides && pv.noteOverrides[1078];
+      check('note rot_x override present on note 1078', !!ovr && ovr.rot_x === 45,
+        ovr ? JSON.stringify(ovr) : 'missing');
+      if (note && ovr) {
+        // Load the player note textures so the body/ring actually draw.
+        const assetsDir = path.join(__dirname, '..', 'app', 'assets', 'player');
+        const load = async (name) => {
+          const buf = fs.readFileSync(path.join(assetsDir, name));
+          const img = new Image();
+          img.src = 'data:image/png;base64,' + buf.toString('base64');
+          await new Promise((res) => { img.onload = () => res(img); img.onerror = () => res(null); });
+          return img;
+        };
+        const [ring, fill, hring] = await Promise.all([
+          load('note_ring.png'), load('note_fill.png'), load('hold_ring.png'),
+        ]);
+        pv.playerAssets = { noteRing: ring, noteFill: fill, holdRing: hring, flickFill: null, flickRing: null, flickLeft: null, flickRight: null, holdLine: null, holdTriangle: null, cDragFill: null, dragLine: null };
+        const info = pv.ctxInfo();
+        const cnv = document.createElement('canvas');
+        cnv.width = W; cnv.height = H;
+        const ctx = cnv.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        pv.drawNote(ctx, info, note, 1, null, null, t);
+        const data = ctx.getImageData(0, 0, W, H).data;
+        let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            const lum = data[i] + data[i + 1] + data[i + 2];
+            if (lum > 120 && data[i + 3] > 60) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        const bw = maxX - minX, bh = maxY - minY;
+        const cos45 = Math.cos(45 * Math.PI / 180);
+        check('note 1078 body visibly foreshortened by rot_x',
+          bw > 10 && bh > 5 && Math.abs(bh / Math.max(1, bw) - cos45) < 0.18,
+          `box=${bw}x${bh} ratio=${(bh / Math.max(1, bw)).toFixed(3)} cos45=${cos45.toFixed(3)}`);
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // 8) Drag head clear effect must sit on the drag head BODY, not the
+    // scanner line; note_controller X/Y_Offset (dx/dy) must be applied.
+    // ----------------------------------------------------------------
+    {
+      const dir = 'V:/cytoid storyboarder/项目/测试：robotic girl/ロボティックガール';
+      const chartText = fs.readFileSync(path.join(dir, 'chart.base.txt'), 'utf8');
+      const sbText = fs.readFileSync(path.join(dir, 'storyboard_compiled.json'), 'utf8');
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.levelDir = dir;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler(
+        window.SBEngine.storyboard.fromCompiled(JSON.parse(sbText)), chart).compile();
+      const dragHeads = chart.notes.filter((n) => n.type === 3 || n.type === 6);
+      check('drag heads exist', dragHeads.length > 0, `count=${dragHeads.length}`);
+      // Pick the first drag head whose body has slid off the scanline by the
+      // time the effect plays (start + 0.05), proving the "bound to body"
+      // check is meaningful.
+      let dragNote = null;
+      for (const n of dragHeads) {
+        const t = n.start_time + 0.05;
+        pv.time = t;
+        pv.evaluate(t);
+        const info = pv.ctxInfo();
+        const bp = pv.notePos(n, info);
+        const sp = pv.worldToPx(n.worldX, chart.getScannerPositionY(n.start_time), info);
+        if (Math.abs(bp.x - sp.x) > 1 || Math.abs(bp.y - sp.y) > 1) { dragNote = n; break; }
+      }
+      check('drag head with moved body found', !!dragNote,
+        dragNote ? `id=${dragNote.id} start=${dragNote.start_time}` : 'no head moves within the effect window');
+      if (dragNote) {
+        const t = dragNote.start_time + 0.05;
+        pv.time = t;
+        pv.evaluate(t);
+        const info = pv.ctxInfo();
+        const bodyPos = pv.notePos(dragNote, info);
+        const scanPos = pv.worldToPx(dragNote.worldX, chart.getScannerPositionY(dragNote.start_time), info);
+        // drawClearEffects must compute the effect from notePos (the body).
+        const called = [];
+        const origNP = pv.notePos.bind(pv);
+        pv.notePos = (n, i) => { called.push(n.id); return origNP(n, i); };
+        pv.drawClearEffects(pv.ctx, info, t);
+        pv.notePos = origNP;
+        check('drag clear effect uses notePos (body)',
+          called.includes(dragNote.id), `called=${JSON.stringify(called)}`);
+        check('drag body is off the scanner line',
+          Math.abs(bodyPos.x - scanPos.x) > 1 || Math.abs(bodyPos.y - scanPos.y) > 1,
+          `body=(${bodyPos.x.toFixed(1)},${bodyPos.y.toFixed(1)}) scan=(${scanPos.x.toFixed(1)},${scanPos.y.toFixed(1)})`);
+      }
+      // X/Y_Offset read: note 1302's note controller carries XOffset=-0.3
+      // (compiled) -> dx in the editable format -> ovr.dx in the preview
+      // while the note is approaching.
+      const ncNote = chart.noteById(1302);
+      check('XOffset target note 1302 exists', !!ncNote, ncNote ? `start=${ncNote.start_time}` : 'missing');
+      if (ncNote) {
+        const t = ncNote.start_time - 1.2; // inside the dx=-0.3 approach window
+        pv.time = t;
+        pv.evaluate(t);
+        const ovr = pv.noteOverrides && pv.noteOverrides[1302];
+        check('XOffset read into ovr.dx', !!ovr && ovr.dx != null,
+          ovr ? JSON.stringify(ovr) : 'missing');
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // 9) Note controller X/Y offsets: editable dx/dy <-> compiled
+    // XOffset/YOffset round trip.
+    // ----------------------------------------------------------------
+    {
+      const chart = mkChart(JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [{ page_index: 0, type: 0, id: 1, tick: 480, x: 0.5, has_sibling: false, hold_tick: 0, next_id: 0, is_forward: false, approach_rate: 1 }],
+      }));
+      const editable = {
+        note_controllers: [{ id: 'nc1', note: 1, states: [{ time: 0, dx: -0.3, dy: 0.25 }] }],
+      };
+      const compiled = window.SBEngine.storyboard.toCompiled(editable, chart);
+      const ncStates = compiled.note_controllers[0].States;
+      check('compiled emits Dx', ncStates.some((s) => s.Dx === -0.3), JSON.stringify(ncStates));
+      check('compiled emits Dy', ncStates.some((s) => s.Dy === 0.25), JSON.stringify(ncStates));
+      const back = window.SBEngine.storyboard.fromCompiled(compiled);
+      const bnc = back.note_controllers[0];
+      const stateDx = bnc && (bnc.dx !== undefined ? bnc.dx : (bnc.states || []).find((s) => s.dx !== undefined));
+      const stateDy = bnc && (bnc.dy !== undefined ? bnc.dy : (bnc.states || []).find((s) => s.dy !== undefined));
+      check('dx read back from XOffset', bnc && (bnc.dx === -0.3 || (bnc.states || []).some((s) => s.dx === -0.3)),
+        bnc ? JSON.stringify(bnc) : 'missing');
+      check('dy read back from YOffset', bnc && (bnc.dy === 0.25 || (bnc.states || []).some((s) => s.dy === 0.25)),
+        bnc ? JSON.stringify(bnc) : 'missing');
+    }
+
+    // ----------------------------------------------------------------
+    // 10) Parent as 3D reference frame: rot_x / rot_y / scale rotate and
+    // scale the child's coordinate system (camera-like), so same-axis
+    // rotations add and offsets foreshorten like a real 3D hierarchy.
+    // ----------------------------------------------------------------
+    {
+      const chart = mkChart(JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: []
+      }));
+      const info = mkPv().ctxInfo();
+      const mkP = (sprites) => {
+        const p = mkPv();
+        p.chart = chart;
+        p.compiled = new window.SBEngine.storyboard.StoryboardCompiler({ sprites }, chart).compile();
+        p.evaluate(0.5);
+        return p;
+      };
+      // Same-axis nested rot_x: 45 + 45 = 90 -> the child plane is edge-on
+      // (d ~ 0), which the old 2D squash approximation (cos^2 = 0.5) missed.
+      const p1 = mkP([
+        { id: 'p', rot_x: 45, states: [{ time: 0, opacity: 1 }] },
+        { id: 'c', parent_id: 'p', rot_x: 45, states: [{ time: 0, opacity: 1 }] },
+      ]);
+      const r1c = (p1.evalResult.sprites || []).find((s) => s.obj.id === 'c');
+      const m1 = p1.stageMatrix(r1c.obj, r1c, info);
+      check('3D: same-axis nested rot_x adds to 90 (edge-on)',
+        Math.abs(m1.d) < 0.08, `d=${m1.d.toFixed(4)} (old approx would be ~0.5)`);
+      // Parent rot_x foreshortens the child's local Y offset (the frame's Y
+      // axis), like a camera tilt.
+      const p2 = mkP([
+        { id: 'p', rot_x: 45, states: [{ time: 0, opacity: 1 }] },
+        { id: 'c', parent_id: 'p', y: { value: 100, unit: 'stagey' }, states: [{ time: 0, opacity: 1 }] },
+      ]);
+      const r2c = (p2.evalResult.sprites || []).find((s) => s.obj.id === 'c');
+      const m2 = p2.stageMatrix(r2c.obj, r2c, info);
+      const cos45 = Math.cos(45 * Math.PI / 180);
+      const expectedOff = -(100 / 600 * H) * cos45;
+      check('3D: parent rot_x foreshortens child offset',
+        Math.abs((m2.f - H / 2) - expectedOff) < 2,
+        `off=${(m2.f - H / 2).toFixed(1)} expected=${expectedOff.toFixed(1)}`);
+      // rot_x + rot_y on one object produces the correct 3D shear term
+      // (sin45*sin45), which the old 2D squash ignored.
+      const p3 = mkP([
+        { id: 's', rot_x: 45, rot_y: 45, states: [{ time: 0, opacity: 1 }] },
+      ]);
+      const r3 = (p3.evalResult.sprites || []).find((s) => s.obj.id === 's');
+      const m3 = p3.stageMatrix(r3.obj, r3, info);
+      check('3D: rot_x+rot_y shear appears (b ~ 0.5)',
+        Math.abs(Math.abs(m3.b) - 0.5) < 0.08, `b=${m3.b.toFixed(4)}`);
+      // Parent scale scales the child's offset (reference-frame scale).
+      const p4 = mkP([
+        { id: 'p', scale: 2, states: [{ time: 0, opacity: 1 }] },
+        { id: 'c', parent_id: 'p', x: { value: 100, unit: 'stagex' }, states: [{ time: 0, opacity: 1 }] },
+      ]);
+      const r4c = (p4.evalResult.sprites || []).find((s) => s.obj.id === 'c');
+      const m4 = p4.stageMatrix(r4c.obj, r4c, info);
+      const expectedX = 100 / 800 * W * 2;
+      check('3D: parent scale scales child offset',
+        Math.abs((m4.e - W / 2) - expectedX) < 2,
+        `off=${(m4.e - W / 2).toFixed(1)} expected=${expectedX.toFixed(1)}`);
+    }
+
+    // ----------------------------------------------------------------
+    // 11) Multi-level parent chains (parent of parent of ...) and the rot_z
+    // direction convention: a positive rot_z renders counterclockwise
+    // (matching Unity), and each level's transform composes onto the next.
+    // ----------------------------------------------------------------
+    {
+      const chart = mkChart(JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: []
+      }));
+      const info = mkPv().ctxInfo();
+      const mkP = (sprites) => {
+        const p = mkPv();
+        p.chart = chart;
+        p.compiled = new window.SBEngine.storyboard.StoryboardCompiler({ sprites }, chart).compile();
+        p.evaluate(0.5);
+        return p;
+      };
+      const sprM = (p, id) => {
+        const r = (p.evalResult.sprites || []).find((s) => s.obj.id === id);
+        return p.stageMatrix(r.obj, r, info);
+      };
+      // Positive rot_z must be counterclockwise: e_x maps toward (0, -1)
+      // (up in y-down canvas), so b (sin of the rotated angle) is negative.
+      const pz = mkP([
+        { id: 's', rot_z: 90, states: [{ time: 0, opacity: 1 }] },
+      ]);
+      const mz = sprM(pz, 's');
+      check('rot_z=90 renders counterclockwise (b<0, like Unity)',
+        Math.abs(mz.a) < 0.01 && mz.b < -0.99,
+        `a=${mz.a.toFixed(3)} b=${mz.b.toFixed(3)}`);
+      // Three-level chain: gp(rot_z=30) -> p(rot_z=45, x=100) -> c(x=50).
+      // The child's final rotation = Rz(-30-45) and its position = the
+      // composed offsets, proving arbitrary-depth chains work.
+      const pc = mkP([
+        { id: 'gp', rot_z: 30, states: [{ time: 0, opacity: 1 }] },
+        { id: 'p', parent_id: 'gp', rot_z: 45, x: { value: 100, unit: 'stagex' }, states: [{ time: 0, opacity: 1 }] },
+        { id: 'c', parent_id: 'p', x: { value: 50, unit: 'stagex' }, states: [{ time: 0, opacity: 1 }] },
+      ]);
+      const mgp = sprM(pc, 'gp');
+      const mp = sprM(pc, 'p');
+      const mc = sprM(pc, 'c');
+      // Combined angle = -(30+45) = -75 deg -> a=cos(-75)=0.259, b=sin(-75)=-0.966
+      const ca = Math.cos(-75 * Math.PI / 180), cb = Math.sin(-75 * Math.PI / 180);
+      check('3-level chain: child inherits combined rot_z',
+        Math.abs(mc.a - ca) < 0.05 && Math.abs(mc.b - cb) < 0.05,
+        `a=${mc.a.toFixed(3)} b=${mc.b.toFixed(3)} expected a=${ca.toFixed(3)} b=${cb.toFixed(3)}`);
+      // Parent p is at gp's center + its 100px offset rotated by gp's -30deg.
+      const expPx = 100 / 800 * W * Math.cos(-30 * Math.PI / 180);
+      const expPy = 100 / 800 * W * Math.sin(-30 * Math.PI / 180);
+      check('3-level chain: parent offset rotated by grandparent',
+        Math.abs((mp.e - mgp.e) - expPx) < 3 && Math.abs((mp.f - mgp.f) - expPy) < 3,
+        `off=(${(mp.e - mgp.e).toFixed(1)},${(mp.f - mgp.f).toFixed(1)}) expected=(${expPx.toFixed(1)},${expPy.toFixed(1)})`);
+      // Child c = p's center + its 50px offset rotated by p's local frame
+      // (already including gp's rotation): total -75deg.
+      const expCx = 50 / 800 * W * Math.cos(-75 * Math.PI / 180);
+      const expCy = 50 / 800 * W * Math.sin(-75 * Math.PI / 180);
+      check('3-level chain: child offset rotated by full chain',
+        Math.abs((mc.e - mp.e) - expCx) < 3 && Math.abs((mc.f - mp.f) - expCy) < 3,
+        `off=(${(mc.e - mp.e).toFixed(1)},${(mc.f - mp.f).toFixed(1)}) expected=(${expCx.toFixed(1)},${expCy.toFixed(1)})`);
+    }
+
+    // ----------------------------------------------------------------
+    // 12) C-drag head arrow must keep pointing at the next node on screen
+    // under camera rot_z (e.g. 180 degrees must NOT flip the arrow).
+    // ----------------------------------------------------------------
+    {
+      const chartText = JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [
+          { page_index: 0, type: 6, id: 1, tick: 240, x: 0.3, has_sibling: false, hold_tick: 0, next_id: 2, is_forward: false, approach_rate: 1 },
+          { page_index: 0, type: 4, id: 2, tick: 300, x: 0.8, has_sibling: false, hold_tick: 0, next_id: -1, is_forward: false, approach_rate: 1 },
+        ],
+      });
+      const chart = mkChart(chartText);
+      const verify = (rotZdeg) => {
+        const pv = mkPv();
+        pv.chart = chart;
+        pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({ sprites: [] }, chart).compile();
+        pv.mergedCtrl = { rot_z: rotZdeg };
+        const t = 0.3;
+        pv.time = t;
+        pv.evaluate(t);
+        const info = pv.ctxInfo();
+        const head = chart.noteById(1);
+        const target = chart.noteById(2);
+        const a = pv.notePos(head, info);
+        const b = pv.notePos(target, info);
+        const screenDir = Math.atan2(b.y - a.y, b.x - a.x);
+        // The arrow texture points up by default: its screen angle (y-down)
+        // is direction + 90 deg. The local rotation applied in drawNote is
+        // ang - (info.rotZ + noteRotZ); the note has no own rot_z here.
+        const ang = pv.cDragArrowAngle(head, info);
+        const local = ang - (info.rotZ + 0);
+        const screenAngle = local + info.rotZ;
+        // Normalize to [-pi, pi]
+        const norm = (x) => {
+          while (x > Math.PI) x -= 2 * Math.PI;
+          while (x < -Math.PI) x += 2 * Math.PI;
+          return x;
+        };
+        const expected = screenDir + Math.PI / 2;
+        return { ok: Math.abs(norm(screenAngle) - norm(expected)) < 0.01, detail: `rotZ=${rotZdeg} screenAngle=${norm(screenAngle).toFixed(3)} expected=${norm(expected).toFixed(3)}` };
+      };
+      const r0 = verify(0);
+      const r180 = verify(180);
+      check('cdrag arrow correct at camera rot_z=0', r0.ok, r0.detail);
+      check('cdrag arrow correct at camera rot_z=180', r180.ok, r180.detail);
+    }
+
+    // ----------------------------------------------------------------
+    // 13) Holdbar must start at the hold BODY's edge (not inside the body)
+    // and end where the scanner is at the clear time (same relationship as
+    // long-hold bars).
+    // ----------------------------------------------------------------
+    {
+      const chartText = JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [
+          { page_index: 0, type: 1, id: 5, tick: 240, x: 0.5, has_sibling: false, hold_tick: 480, next_id: 0, is_forward: false, approach_rate: 1 },
+        ],
+      });
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({ sprites: [] }, chart).compile();
+      const note = chart.noteById(5);
+      const t = (note.start_time + note.end_time) / 2;
+      pv.time = t;
+      pv.evaluate(t);
+      const info = pv.ctxInfo();
+      const { d, opacity } = pv.noteVisualParams(note, info, 1, null, null, t);
+      const p = pv.notePos(note, info);
+      const seg = (Math.max(2, 0.045 * info.S) + Math.max(2, 0.165 * info.S)) * info.syF;
+      const dashH = Math.max(2, 0.045 * info.S);
+      const scanEndWorld = chart.getScannerPositionY(note.end_time);
+      const scanEndY = H / 2 - pv.projectedY(scanEndWorld, info);
+      const cnv = document.createElement('canvas');
+      cnv.width = W; cnv.height = H;
+      const ctx = cnv.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      pv.drawHoldBars(ctx, info, note, 1, null, null, t);
+      const data = ctx.getImageData(0, 0, W, H).data;
+      try {
+        fs.writeFileSync(path.join(__dirname, 'test_holdbar_shot.png'),
+          cnv.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), 'base64');
+      } catch (e6) {}
+      out.holdbarDebug = {
+        noteX: p.x, noteY: p.y, d, opacity, seg, dir: note.direction,
+        start: note.start_time, end: note.end_time, t,
+        scanEndY,
+      };
+      const probe = (x, y) => {
+        const i = (y * W + x) * 4;
+        return [data[i], data[i + 1], data[i + 2], data[i + 3]];
+      };
+      out.holdbarDebug.pixels = {
+        at480_345: probe(480, 345),
+        at480_350: probe(480, 350),
+        at480_360: probe(480, 360),
+        at100_100: probe(100, 100),
+      };
+      // Find dash pixels anywhere (bright white or colored).
+      let minY = 1e9, maxY = -1, cnt = 0;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x += 4) {
+          const i = (y * W + x) * 4;
+          const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+          if (data[i + 3] > 50 && lum > 70) {
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+            cnt++;
+          }
+        }
+      }
+      check('holdbar dashes rendered', cnt > 3, `cnt=${cnt} span=${minY}..${maxY}`);
+      if (cnt > 3) {
+        const dir = minY < p.y - d * 0.5 ? -1 : 1; // which side the bar extends
+        const edgeY = dir < 0 ? p.y - d * 0.5 : p.y + d * 0.5;
+        const firstCenter = dir < 0 ? maxY - dashH / 2 : minY + dashH / 2;
+        const lastCenter = dir < 0 ? minY + dashH / 2 : maxY - dashH / 2;
+        check('holdbar starts at body edge (not center)',
+          Math.abs(firstCenter - edgeY) < seg * 1.5,
+          `first=${firstCenter.toFixed(1)} edge=${edgeY.toFixed(1)} center=${p.y.toFixed(1)} seg=${seg.toFixed(1)}`);
+        check('holdbar ends at the scanner clear position',
+          Math.abs(lastCenter - scanEndY) < seg * 1.5,
+          `last=${lastCenter.toFixed(1)} scanEnd=${scanEndY.toFixed(1)} seg=${seg.toFixed(1)}`);
+        // No dash may lie inside the body's vertical span.
+        const inside = (dir < 0 ? maxY : minY);
+        const bodyTop = p.y - d * 0.5 + 2;
+        const bodyBot = p.y + d * 0.5 - 2;
+      check('holdbar does not extend into the body',
+          inside <= bodyTop || inside >= bodyBot,
+          `nearest=${inside.toFixed(1)} body=[${bodyTop.toFixed(1)},${bodyBot.toFixed(1)}]`);
+      }
+      // During the intro the bar keeps its FINAL length and slides outward
+      // with the growing body edge: its far end extends toward the scanner by
+      // exactly the previous gap (never growing from zero, never shrinking).
+      const dashSpanAt = (tt) => {
+        const c2 = document.createElement('canvas');
+        c2.width = W; c2.height = H;
+        const x2 = c2.getContext('2d');
+        x2.fillStyle = '#000';
+        x2.fillRect(0, 0, W, H);
+        pv.drawHoldBars(x2, info, note, 1, null, null, tt);
+        const d2 = x2.getImageData(0, 0, W, H).data;
+        let lo = 1e9, hi = -1, n = 0;
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x += 4) {
+            const i = (y * W + x) * 4;
+            const lum = (d2[i] + d2[i + 1] + d2[i + 2]) / 3;
+            if (d2[i + 3] > 50 && lum > 70) {
+              if (y < lo) lo = y;
+              if (y > hi) hi = y;
+              n++;
+            }
+          }
+        }
+        return { lo, hi, n };
+      };
+      const earlyT = Math.max(note.start_time - 0.5, note.intro_time + 0.1);
+      const lateT = note.start_time - 0.03;
+      const early = dashSpanAt(earlyT);
+      const late = dashSpanAt(lateT);
+      const mid = dashSpanAt(t);
+      const dToCenter = (y) => Math.abs(y - p.y);
+      const farEnd = (s) => (dToCenter(s.lo) > dToCenter(s.hi) ? s.lo : s.hi);
+      const nearEnd = (s) => (dToCenter(s.lo) > dToCenter(s.hi) ? s.hi : s.lo);
+      const lenS = (s) => Math.abs(s.hi - s.lo);
+      check('holdbar keeps final length and extends by the gap during intro',
+        early.n > 3 && late.n > 3 && mid.n > 3 &&
+        Math.abs(lenS(early) - lenS(mid)) < 6 && Math.abs(lenS(late) - lenS(mid)) < 6 &&
+        Math.abs(farEnd(mid) - scanEndY) < seg * 1.5 &&
+        dToCenter(nearEnd(early)) < dToCenter(nearEnd(mid)) - 5,
+        `early=${early.lo}..${early.hi} (${early.n}) late=${late.lo}..${late.hi} (${late.n}) mid=${mid.lo}..${mid.hi} (${mid.n}) nearE=${dToCenter(nearEnd(early)).toFixed(1)} nearM=${dToCenter(nearEnd(mid)).toFixed(1)} lenE=${lenS(early)} lenM=${lenS(mid)}`);
+      // The fill (colored dashes) must reach exactly the scanline, not run
+      // ahead of it: at mid-hold (progress 0.5) the colored/white boundary
+      // should sit at the scanner position p.y + holdLen*progress.
+      const scanStartWorld = chart.getScannerPositionY(note.start_time);
+      const scanEndWorld2 = chart.getScannerPositionY(note.end_time);
+      const holdLenPx = Math.abs(scanEndWorld2 - scanStartWorld) * info.S * info.syF;
+      const progressMid = (t - note.start_time) / Math.max(0.001, note.end_time - note.start_time);
+      const scannerScreenY = p.y + holdLenPx * progressMid;
+      const c3 = document.createElement('canvas');
+      c3.width = W; c3.height = H;
+      const x3 = c3.getContext('2d');
+      x3.fillStyle = '#000';
+      x3.fillRect(0, 0, W, H);
+      pv.drawHoldBars(x3, info, note, 1, null, null, t);
+      const d3 = x3.getImageData(0, 0, W, H).data;
+      const col = Math.round(p.x);
+      let lastColored = -1, firstWhite = 1e9;
+      for (let y = 0; y < H; y++) {
+        const i = (y * W + col) * 4;
+        const r = d3[i], g = d3[i + 1], b = d3[i + 2], a = d3[i + 3];
+        const lum = (r + g + b) / 3;
+        if (a > 50 && lum > 70) {
+          if (r > g + 40 && r > b + 40) lastColored = y;      // hold fill color
+          else if (r > 110 && g > 110 && b > 110) { if (firstWhite > y) firstWhite = y; } // white dash
+        }
+      }
+      out.holdbarDebug.fill = {
+        holdLenPx, progressMid, scannerScreenY, lastColored, firstWhite,
+      };
+      check('holdbar fill reaches the scanline exactly',
+        lastColored > 0 && firstWhite > lastColored &&
+        Math.abs(lastColored - scannerScreenY) < seg * 1.5 &&
+        Math.abs(firstWhite - scannerScreenY) < seg * 1.5,
+        `lastColored=${lastColored} firstWhite=${firstWhite} scanner=${scannerScreenY.toFixed(1)} seg=${seg.toFixed(1)}`);
+    }
+
+    // ----------------------------------------------------------------
+    // 14) Long-hold fill keeps its OWN edge-based animation: the colored fill
+    // grows from the body toward the visible screen edge with progress
+    // (edgeLen * progress), not by the regular hold's scanline formula.
+    // ----------------------------------------------------------------
+    {
+      const chartText = JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [
+          { page_index: 0, type: 2, id: 9, tick: 0, x: 0.5, has_sibling: false, hold_tick: 960, next_id: 0, is_forward: false, approach_rate: 1 },
+        ],
+      });
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({ sprites: [] }, chart).compile();
+      const note = chart.noteById(9);
+      const coloredExtentAt = (tt) => {
+        pv.time = tt;
+        pv.evaluate(tt);
+        const info = pv.ctxInfo();
+        const p = pv.notePos(note, info);
+        const cnv = document.createElement('canvas');
+        cnv.width = W; cnv.height = H;
+        const ctx = cnv.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        pv.drawHoldBars(ctx, info, note, 1, null, null, tt);
+        const data = ctx.getImageData(0, 0, W, H).data;
+        const col = Math.round(p.x);
+        let lo = 1e9, hi = -1;
+        for (let y = 0; y < H; y++) {
+          const i = (y * W + col) * 4;
+          const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+          const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+          const isWhite = r > 110 && g > 110 && b > 110;
+          if (a > 50 && !isWhite && mx - mn > 50) {
+            if (y < lo) lo = y;
+            if (y > hi) hi = y;
+          }
+        }
+        return { lo, hi, extent: hi - lo };
+      };
+      const p1 = coloredExtentAt(note.start_time + 0.25 * (note.end_time - note.start_time));
+      const p3 = coloredExtentAt(note.start_time + 0.75 * (note.end_time - note.start_time));
+      // The extent includes the body height; the FILL GROWTH between the two
+      // moments is 0.5 * (up+down visible bar lengths) ~ 0.5 * (H - d).
+      pv.time = (note.start_time + note.end_time) / 2;
+      pv.evaluate(pv.time);
+      const info14 = pv.ctxInfo();
+      const d14 = pv.noteVisualParams(note, info14, 1, null, null, pv.time).d;
+      const growth = p3.extent - p1.extent;
+      check('longhold fill grows with progress (edge-based, not instantly full)',
+        p1.extent > 5 && growth > 150 && growth < 0.55 * (H - d14) + 40,
+        `p=0.25 extent=${p1.extent} (${p1.lo}..${p1.hi}) p=0.75 extent=${p3.extent} (${p3.lo}..${p3.hi}) growth=${growth.toFixed(1)} expected≈${(0.5 * (H - d14)).toFixed(1)}`);
+    }
+
+    // ----------------------------------------------------------------
+    // 15) With override_scanline_pos, a default-style hold's clear effect
+    // must sit at the OVERRIDDEN scanline position, not the chart-computed
+    // scanner Y at the clear time.
+    // ----------------------------------------------------------------
+    {
+      const chartText = JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [
+          { page_index: 0, type: 1, id: 6, tick: 240, x: 0.5, has_sibling: false, hold_tick: 240, next_id: 0, is_forward: false, approach_rate: 1 },
+        ],
+      });
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({
+        controllers: [{
+          id: 'cam', override_scanline_pos: true, scanline_pos: 0.7,
+          states: [{ time: 0 }],
+        }],
+      }, chart).compile();
+      const note = chart.noteById(6);
+      const tClear = note.end_time;
+      const t = tClear + 0.05;
+      pv.time = t;
+      pv.evaluate(t);
+      const info = pv.ctxInfo();
+      const ovrPx = pv.mergedCtrl && pv.mergedCtrl.scanline_posPx;
+      const chartScanY = chart.getScannerPositionY(tClear);
+      const calls = [];
+      const origW2P = pv.worldToPx.bind(pv);
+      pv.worldToPx = (wx, wy, inf, wz) => { calls.push({ wx, wy }); return origW2P(wx, wy, inf, wz); };
+      pv.drawClearEffects(pv.ctx, info, t);
+      pv.worldToPx = origW2P;
+      const fxCall = calls[calls.length - 1];
+      check('override_scanline_pos controller merged',
+        pv.mergedCtrl && pv.mergedCtrl.override_scanline_pos === true && ovrPx != null,
+        `override=${pv.mergedCtrl && pv.mergedCtrl.override_scanline_pos} px=${ovrPx}`);
+      check('default hold clear effect at overridden scanline Y',
+        fxCall && Math.abs(fxCall.wy - ovrPx) < 1e-6,
+        fxCall ? `wy=${fxCall.wy} overridePx=${ovrPx} chartY=${chartScanY}` : 'no effect call');
+      check('effect NOT at the chart-computed scanner Y',
+        fxCall && Math.abs(fxCall.wy - chartScanY) > 1e-6,
+        fxCall ? `wy=${fxCall.wy} chartY=${chartScanY}` : 'no call');
+    }
+
+    // ----------------------------------------------------------------
+    // 16) Holdbar renders its own 3D rotation: with a hold rot_x in
+    // perspective mode, the dash spacing/size must taper along the bar
+    // (nearer dashes larger/spread, farther dashes smaller/tighter).
+    // ----------------------------------------------------------------
+    {
+      const chartText = JSON.stringify({
+        format_version: 0, time_base: 480, start_offset_time: 0, music_offset: 0,
+        page_list: [{ start_tick: 0, end_tick: 960, scan_line_direction: -1 }],
+        note_list: [
+          { page_index: 0, type: 1, id: 7, tick: 240, x: 0.5, has_sibling: false, hold_tick: 480, next_id: 0, is_forward: false, approach_rate: 1 },
+        ],
+      });
+      const chart = mkChart(chartText);
+      const pv = mkPv();
+      pv.chart = chart;
+      pv.compiled = new window.SBEngine.storyboard.StoryboardCompiler({
+        note_controllers: [{ id: 'nc7', note: 7, states: [{ time: 0, override_rot_x: true, rot_x: 30 }] }],
+      }, chart).compile();
+      const note = chart.noteById(7);
+      const t = (note.start_time + note.end_time) / 2;
+      pv.time = t;
+      pv.evaluate(t);
+      pv.mergedCtrl = { perspective: true, fov: 53.2 };
+      const info = pv.ctxInfo();
+      const p = pv.notePos(note, info);
+      const cnv = document.createElement('canvas');
+      cnv.width = W; cnv.height = H;
+      const ctx = cnv.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      pv.drawHoldBars(ctx, info, note, 1, null, null, t);
+      const data = ctx.getImageData(0, 0, W, H).data;
+      const col = Math.round(p.x);
+      // Find dash row bands in the note column.
+      const rows = [];
+      for (let y = 0; y < H; y++) {
+        const i = (y * W + col) * 4;
+        const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        if (data[i + 3] > 50 && lum > 70) rows.push(y);
+      }
+      // Cluster into dash centers.
+      const centers = [];
+      let bandStart = -1;
+      for (let i = 0; i <= rows.length; i++) {
+        const y = rows[i];
+        if (bandStart < 0) bandStart = y;
+        if (i === rows.length || y - rows[i - 1] > 4) {
+          centers.push((bandStart + rows[i - 1]) / 2);
+          bandStart = -1;
+        }
+      }
+      out.holdbar3d = { centers, count: centers.length };
+      if (centers.length >= 4) {
+        const gaps = [];
+        for (let i = 1; i < centers.length; i++) gaps.push(Math.abs(centers[i] - centers[i - 1]));
+        // Far end = the end farther from the note center.
+        const dir = Math.abs(centers[centers.length - 1] - p.y) > Math.abs(centers[0] - p.y) ? 1 : -1;
+        const farGap = dir > 0 ? gaps[gaps.length - 1] : gaps[0];
+        const nearGap = dir > 0 ? gaps[0] : gaps[gaps.length - 1];
+        out.holdbar3d.gaps = gaps;
+        out.holdbar3d.farNear = { farGap, nearGap };
+        // Child rule: the holdbar's far end tilts OPPOSITE to the note body.
+        // For rot_x=+30 an upward bar's far end is farther (tighter gaps), a
+        // downward bar's far end is nearer (larger gaps).
+        const barDown = centers[centers.length - 1] > centers[0];
+        const okDir = barDown ? farGap > nearGap : farGap < nearGap;
+        check('holdbar dashes taper with own rot_x (3D perspective, opposite to body)',
+          Math.abs(farGap - nearGap) > 0.8 && okDir,
+          `gaps=${gaps.map((g) => g.toFixed(2)).join(',')} far=${farGap.toFixed(2)} near=${nearGap.toFixed(2)} dir=${barDown ? 'down' : 'up'}`);
+      } else {
+        check('holdbar dashes taper with own rot_x (3D perspective)',
+          false, `only ${centers.length} dash bands`);
+      }
+    }
+
+    fs.writeFileSync(path.join(__dirname, 'test_clear_effect_out.json'), JSON.stringify(out, null, 2));
+    window.close();
+  } catch (e) {
+    fs.writeFileSync(path.join(__dirname, 'test_clear_effect_err.txt'), String(e && e.stack || e));
+    window.close();
+  }
+  })();
+</script>
+</body>
+</html>
