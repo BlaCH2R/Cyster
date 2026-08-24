@@ -23,6 +23,8 @@ TigerHix/
 # ---- 根目录误存/历史文件 ----
 /--no-sandbox
 /app.js
+/cyster-publish.txt
+*cyster-publish*
 
 # ---- 探针运行产物 ----
 tools/*_out.json
