@@ -1,38 +1,8 @@
 # Cyster v0.1beta
 
-一款面向 Windows 的 **Cytoid 关卡 StoryBoard 可视化编辑软件**，采用类似剪映/剪辑软件的“时间轴 + 素材 + 实时预览”工作方式，让制谱者无需手写 JSON 即可完成 StoryBoard 演出编排，并导出**符合官方格式规范**的 StoryBoard 文件。
+一款面向 Windows 的 **Cytoid 关卡 StoryBoard 可视化编辑软件**，采用类似剪辑软件的“时间轴 + 素材 + 实时预览”工作方式，让用户无需手写 JSON 即可完成 StoryBoard 演出编排，并导出**符合官方格式规范**的 StoryBoard 文件。
 
 > StoryBoard 的全部功能严格以官方文档《StoryBoard 格式详解》（Cytoid Wiki，版本 2.0.2）中明确提及且有效的部分为准，未捏造任何非官方字段。渲染与求值语义以 [Cytoid 官方仓库](https://github.com/Cytoid/cytoid) v2.0.2 标签的 Unity 引擎源码为参考逐项对照实现。
-
----
-
-## 功能特性
-
-- **软件专用项目文件（.ctr，兼容旧版 .ctdsber）**：启动即进入欢迎页（交互逻辑参考 [Cylheim](https://github.com/Horiztar/Cylheim-Desktop)），包含“开始编辑”与“管理当前项目”两个区域，可新建/打开项目、从最近项目继续、在文件夹中显示/复制路径/移除记录。
-- **新建项目**：分别选择音乐（.mp3/.ogg）、谱面（.txt/.json）、背景、StoryBoard 文件后统一加载；目标文件已存在时提供“打开已有项目 / 覆盖为新项目 / 取消”，已打开项目时提示“关闭当前项目并在本窗口创建”。
-- **.cytoidlevel 导入**：可将现有关卡压缩包导入并转换为 `.ctr` 项目；已打开项目时可直接“导入到当前项目”（解压并替换当前项目关卡文件）。
-- **可视化时间轴**：按对象类型分轨展示（Sprite / Text / Video / Line / Controller / Note Controller），支持：
-  - 关键帧菱形拖拽（修改时间）
-  - 整段片段平移（批量偏移对象内所有绝对时间）
-  - 播放头拖拽、标尺点击跳转、缩放
-  - 上一/下一关键帧跳转
-- **素材库**：关卡内图片/音频/视频素材一览，双击图片直接创建 Sprite。
-- **属性面板**：以表单方式编辑文档支持的全部字段（单位换算、颜色、缓动、图层、相机、全套滤镜、Note 覆盖项等），支持在播放头处一键添加关键帧、复制关键帧。
-- **实时游戏预览（1:1 原版风格）**：内置按官方引擎语义实现的 Canvas 游戏视图渲染器，并直接使用从 CytoidPlayer 提取的**原版美术贴图**（NoteRing / NoteFill / FlickRing / FlickFill / Flick 左右箭头 / HoldLine / HoldTriangle / CDragFill / DragLine），配合原版渐入缩放/淡入动画、白色细环 + 内圈彩色填充（按接近程度生长）、Hold 色带 + 指向扫描线的三角、Drag 链白色虚线连线、白色柔和边缘扫描线、全部 StoryBoard 场景对象、相机与全套后处理滤镜。
-- **原生样式重构**：Note 与扫描线已按原生规范重构——扫描线为 0.05 世界单位细实线（事件变色、无泛光）；Drag 连线使用 DragLine 贴图每 0.16 世界单位平铺的虚线样式、颜色跟随音符填充色并带渐入渐出；Hold/LongHold 带原版色带 + 扫描线端三角 + 随按住进度填充的进度环；C-Drag 头部绘制小菱形填充。
-- **Note 清除动画**：Note 被触发后仅播放与原版一致的**青色涟漪环扩散**（0.4s、扩展至 5 世界单位、线宽 1.333→0.333、Perfect 色 #5BC0EB 渐隐；Flick 为对应外框的菱形），并立即隐藏该 Note。
-- **60fps 流畅播放与自动同步**：播放进度由音频时钟逐帧驱动，播放前等待音乐可播放、并在音乐真正开始的瞬间自动校准（自动应用谱面 `music_offset`，无需手动偏移）；播放到谱面末尾自动停止；渲染器对未变化帧直接跳过、滤镜采用半分辨率缓冲，实测渲染耗时约 1ms/帧；播放控制条实时显示 FPS。
-- **采样级音频同步**：音乐播放改用 Web Audio（`AudioContext`）解码与调度，替代浏览器音频元素——无缓冲启动延迟、无 `currentTime` 漂移，Note 清除动画与音乐节拍精确同步。
-- **多难度关卡支持**：导入含多张谱面的关卡时自动选择带 StoryBoard 的主谱面（extreme > base > hard > easy，其次难度值），并自动应用该谱面的 `music_override` 音乐；StoryBoard 视频对象（`.mp4`）可正常加载与按时间轴步进。
-- **谱面读取按原版机制**：与 Cytoid v2.0.2 一致 —— JSON 谱面优先解析（含 tempo 变化换算），非 JSON 的 legacy 文本谱面（`PAGE_SIZE/PAGE_SHIFT/NOTE/LINK`）自动回退解析；扫描线位置与速度完全按原版公式计算（随页面与 tempo 精确同步），Note 渐入时间按原版 `1.367/speed`（Drag 为 `1.175/speed`）计算。
-- **代码级对齐 CytoidPlayer**：反编译本机 CytoidPlayer（Assembly-CSharp.dll）后逐项对齐——NoteType 枚举（0 Click / 1 Hold / 2 LongHold / 3 DragHead / 4 DragChild / 5 Flick / 6 CDragHead / 7 CDragChild）、NoteSizes 与 `GlobalNoteSizeMultiplier = size × 1.133333`、填充色索引（AlternativeColor → [0]）、游戏时间公式 `Time = PlaybackTime + MusicOffset`、默认 Note 颜色与 ID 常显；预览直接读取 `.ctr` 项目目录中的 level.json / 谱面 / StoryBoard / 音乐，仅保留播放画面（无 LunarConsole 报错侧边栏）。
-- **Note ID 显示**：每个 Note 上显示其 ID（保持竖直、可读），默认开启，播放控制条“显示 Note ID”开关即时生效（勾选/取消后画面立即刷新）。
-- **清除动画零延迟**：Note 在清除时刻立即隐藏，青色涟漪环在同一帧同时出现，与 Note 被清除的时间完全一致。
-- **时间轴自动对齐音乐长度**：时间轴总长 = max(谱面长度, 实际音乐时长) + 1s，音乐加载完成后自动延伸，确保完整谱面始终可见。
-- **欢迎页**：重写为卡片式布局（Hero + 新建/打开项目卡片 + .cytoidlevel 导入入口 + 最近项目 + 当前项目管理），交互逻辑参考 Cylheim。
-- **规范导出**：
-  - 导出标准 JSON 的 StoryBoard 文件（自动写入关卡目录并登记到 `level.json`）；
-  - 一键打包为标准 `.cytoidlevel` 关卡包。
 
 ## 运行环境
 
@@ -49,24 +19,11 @@
 
 ## 项目文件（.ctr）
 
-- 项目由 `.ctr`（JSON 配置；旧版 `.ctdsber` 仍可直接打开）+ 同目录下的音乐/谱面/背景/StoryBoard/level.json 组成，自包含、可整体拷贝分享。
+- 项目由 `.ctr`（JSON 配置）+ 同目录下的音乐/谱面/背景/StoryBoard/level.json 组成，自包含、可整体拷贝分享。
 - 新建项目时，所选文件会被复制进项目文件夹（`.ctr` 所在目录），并自动生成 `level.json`。
 - 顶部“项目设置”可随时更换音乐/谱面/背景/StoryBoard 并立即重新加载。
 - 最近 6 个项目的快捷入口显示在欢迎页，支持在文件夹中显示、复制路径、移除记录。
 - 顶部 🏠 可随时返回欢迎页；📁 打开当前项目所在文件夹。
-
-## 界面速览
-
-| 区域 | 说明 |
-| --- | --- |
-| 顶部工具栏 | 新建/打开项目、导入 .cytoidlevel、保存/导出、使用 Cytoidplayer 加载当前关卡、项目设置/设置 |
-| 左侧素材库 | 关卡内素材；双击图片创建 Sprite |
-| 左侧对象树 | 全部 StoryBoard 对象，按类型分组，可选中/删除 |
-| 中央预览 | 实时游戏画面（含 Note、扫描线、StoryBoard 对象与滤镜） |
-| 底部时间轴 | 对象轨道、关键帧、播放头、缩放 |
-| 右侧属性 | 选中对象/关键帧的字段编辑与关键帧管理 |
-
-常用快捷键：`空格` 播放/暂停；`←/→` 步进 0.05s；`Shift+←/→` 步进 0.5s。
 
 ## StoryBoard 功能支持范围（严格对应文档 v2.0.2）
 
@@ -138,7 +95,7 @@ tools/                      开发期测试脚本
 ## 致谢
 
 - [Cytoid / Cytoid](https://github.com/Cytoid/cytoid)（TigerHix、Neo 及社区）—— 游戏与 StoryBoard 引擎的开源实现
-- [Cylheim](https://github.com/Horiztar/Cylheim-Desktop)（Horiztar）—— 欢迎页与项目创建/打开/冲突处理交互逻辑的设计参考
+- [Cylheim](https://github.com/Horiztar/Cylheim-Desktop)（Horiztar）—— 欢迎页与项目创建/打开的设计参考
 - Cytoid Wiki 社区 —— 《StoryBoard 格式详解》文档
 - Robert Penner / C.J. Kimberlin —— 缓动函数实现
 
