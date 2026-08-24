@@ -87,11 +87,28 @@ function translateManualDoc(container) {
   if (lang === 'en') {
     const EN = window.CYSTER_MANUAL_EN || {};
     container.querySelectorAll('p').forEach((p) => {
-      if (p.querySelector('img, table')) return;
-      const t = (p.textContent || '').trim();
-      if (t && EN[t] != null) {
+      const key = (p.textContent || '').replace(/\s+/g, ' ').trim();
+      // 摊平处理会把白色 ★ 转成 ⭐，做一次双向归一化再查词典。
+      const hit = EN[key] != null ? EN[key] : (EN[key.replace(/⭐/g, '★')] != null ? EN[key.replace(/⭐/g, '★')] : null);
+      if (key && hit != null) {
+        const t = hit;
+        if (p.querySelector('img, table')) {
+          // 含图片/表格的段落：保留元素，删除全部文本节点（含 span 内的），
+          // 再把英文译文作为文本加入段落末尾。
+          const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, {
+            acceptNode: (n) => (n.parentElement && n.parentElement.closest('script,style'))
+              ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+          });
+          const textNodes = [];
+          while (tw.nextNode()) textNodes.push(tw.currentNode);
+          textNodes.forEach((n) => n.remove());
+          const span = document.createElement('span');
+          span.textContent = t;
+          p.appendChild(span);
+          return;
+        }
         const span = document.createElement('span');
-        span.textContent = EN[t];
+        span.textContent = t;
         p.replaceChildren(span);
       }
     });
