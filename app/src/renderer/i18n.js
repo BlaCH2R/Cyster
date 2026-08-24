@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const EN = (window.CYSTER_I18N_EN) || {};
+  const EN = Object.assign({}, window.CYSTER_I18N_EN || {}, window.CYSTER_MANUAL_EN || {});
   let lang = 'zh-CN';
   let twConv = null;
   try {

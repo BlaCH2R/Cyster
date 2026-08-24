@@ -827,11 +827,11 @@
         // Difficulties that ship with a storyboard get a right-aligned toggle
         // to decide whether to read the existing StoryBoard file.
         const toggle = showSbToggle && hasSb(c)
-          ? `<label class="pick-sb" title="读取该难度已有的 StoryBoard 文件"><input type="checkbox" data-sb="${i}" checked /> 读取已有的Storyboard</label>`
+          ? `<label class="pick-sb" title="${__t('读取该难度已有的 StoryBoard 文件')}"><input type="checkbox" data-sb="${i}" checked /> ${__t('读取已有的Storyboard')}</label>`
           : '';
         return `<div class="pick-item" data-i="${i}"><span class="pick-label">${escapeHtml(label)}</span>${toggle}</div>`;
       }).join('');
-      const body = `<div class="help-text">该关卡包含多个难度谱面，请选择要编辑的难度：</div><div class="pick-list">${items}</div>`;
+      const body = `<div class="help-text">${__t('该关卡包含多个难度谱面，请选择要编辑的难度：')}</div><div class="pick-list">${items}</div>`;
       openModal('选择难度谱面', body, [{ label: '取消', cls: '' }], () => {
         // 取消：只关闭选择框；是否回欢迎页由调用方决定（初始加载无难度可选时
         // 才回欢迎页，编辑中切换难度取消应留在编辑器）。
@@ -5160,7 +5160,7 @@
     setNoteSelectorMerge(nc.id, merge);
     state.dirty = true;
     refreshAll();
-    toast(`已应用 note 选择器（命中 ${noteIds.length} 个选中 note）: ` + JSON.stringify(sel));
+    toast(__t('已应用 note 选择器（命中 ') + noteIds.length + __t(' 个选中 note）: ') + JSON.stringify(sel));
   }
 
   // 选中的 note 是否全部隶属于同一个 note_controller（即同一个选择器）。
@@ -5504,8 +5504,8 @@
       `${r.template}（${r.clones}个拆分条目→合并${r.noteIds.length}个note）`).join('、');
     saveStoryboard().then((ok) => {
       toast(ok
-        ? `已修复合并时间块：${parts}（已保存）`
-        : `已修复合并时间块：${parts}（内存中已生效，请手动保存）`);
+        ? __t('已修复合并时间块：') + parts + __t('（已保存）')
+        : __t('已修复合并时间块：') + parts + __t('（内存中已生效，请手动保存）'));
     });
   }
 
@@ -5611,8 +5611,8 @@
         renderNoteSelectorEditor(floatWindowEl.querySelector('.float-window-body'));
       }
       toast(existed
-        ? `已从选择器草稿移除 note ${n}（剩余 ${base.length} 个，点击“应用”生效）`
-        : `已拾取 note ${n} 加入选择器草稿（共 ${base.length} 个，点击“应用”生效）`);
+        ? __t('已从选择器草稿移除 note ') + n + __t('（剩余 ') + base.length + __t(' 个，点击“应用”生效）')
+        : __t('已拾取 note ') + n + __t(' 加入选择器草稿（共 ') + base.length + __t(' 个，点击“应用”生效）'));
       return;
     }
     let controller = noteSelectorTarget;
@@ -5661,8 +5661,8 @@
       renderNoteSelectorEditor(floatWindowEl.querySelector('.float-window-body'));
     }
     toast(existed
-      ? `已从选择器移除 note ${nid}（剩余 ${base.length} 个，[] 列表形式）`
-      : `已拾取 note ${nid} 加入选择器（共 ${base.length} 个，[] 列表形式）`);
+      ? __t('已从选择器移除 note ') + nid + __t('（剩余 ') + base.length + __t(' 个，[] 列表形式）')
+      : __t('已拾取 note ') + nid + __t(' 加入选择器（共 ') + base.length + __t(' 个，[] 列表形式）'));
   }
 
   // True when the playhead sits exactly on one of the object's keyframes.
@@ -5731,10 +5731,10 @@
       `<div class="field"><label>${escapeHtml(label)}</label>` +
       `<span class="live-stat" data-live-stat="${key}">${fmtLiveStat(m[key])}</span></div>`).join('');
     body.innerHTML =
-      `<div class="prop-section"><h4>Controller 实时统计</h4>` +
-      `<div class="help-text">播放头时刻所有controller合并后的实时状态。未启用卡片可拖到预览画面直接创建对应轨道，或右键「启用」创建新controller轨道。</div>` +
+      `<div class="prop-section"><h4>${__t('Controller 实时统计')}</h4>` +
+      `<div class="help-text">${__t('播放头时刻所有controller合并后的实时状态。未启用卡片可拖到预览画面直接创建对应轨道，或右键「启用」创建新controller轨道。')}</div>` +
       `<div class="ctrl-live-stats">${statsHtml}</div></div>` +
-      `<div class="prop-section"><h4>Controller 属性卡片</h4>` +
+      `<div class="prop-section"><h4>${__t('Controller 属性卡片')}</h4>` +
       `<div id="stateForm" class="kf-form"></div></div>`;
     const formEl = body.querySelector('#stateForm');
     Schema.renderControllerCards(formEl, Schema.SCHEMAS.controller, {}, () => {}, true, {
@@ -7871,9 +7871,9 @@
     const tip = tips[Math.max(0, tipIndex)];
     const title = $('#welcomeTipTitle');
     const body = $('#welcomeTipBody');
-    if (title) title.textContent = tip.title || 'Tips:';
+    if (title) title.textContent = window.SBi18n ? window.SBi18n.t(tip.title || 'Tips:') : (tip.title || 'Tips:');
     if (body) {
-      body.textContent = tip.body || '';
+      body.textContent = window.SBi18n ? window.SBi18n.t(tip.body || '') : (tip.body || '');
       body.classList.remove('switching');
       void body.offsetWidth; // 重启切换动画
       body.classList.add('switching');
@@ -7889,6 +7889,7 @@
     window.SBi18n.setLanguage(l, true);
     window.SBi18n.applyStatic(document);
     window.SBi18n.localizeSchema();
+    if (window.sbAPI && window.sbAPI.notifyLanguageChanged) window.sbAPI.notifyLanguageChanged(l);
     renderProperties();
     renderObjectTree();
     renderTimeline();
@@ -7971,9 +7972,9 @@
         <span class="ri-name">${escapeHtml(name)}</span>
         <span class="ri-path">${escapeHtml(p)}</span>
         <span class="ri-actions">
-          <button class="ri-btn" data-act="folder">文件夹</button>
-          <button class="ri-btn" data-act="copy">复制路径</button>
-          <button class="ri-btn" data-act="remove">移除</button>
+          <button class="ri-btn" data-act="folder">${__t('文件夹')}</button>
+          <button class="ri-btn" data-act="copy">${__t('复制路径')}</button>
+          <button class="ri-btn" data-act="remove">${__t('移除')}</button>
         </span>
       </div>`;
     }
@@ -8022,18 +8023,18 @@
   function newProjectFlow() {
     const sel = { music: null, chart: null, background: null, storyboard: null };
     const body = `
-      <div class="pick-row"><label>项目名称</label><input type="text" id="pjName" placeholder="例如：My Storyboard Level" /></div>
-      <div class="pick-row"><label>关卡ID</label><input type="text" id="pjLevelId" placeholder="charter.title" /></div>
-      <div class="pick-hint">只包含小写字母、数字、下划线、短横杠和点；留空则根据项目名称自动生成</div>
-      <div class="pick-row"><label>音乐</label><input type="text" id="pjMusic" placeholder="未选择" readonly /><button class="mini-btn" data-kind="music">选择</button></div>
-      <div class="pick-hint">支持 .mp3 / .ogg / .wav / .wma / .aac（必选）</div>
-      <div class="pick-row"><label>谱面</label><input type="text" id="pjChart" placeholder="未选择" readonly /><button class="mini-btn" data-kind="chart">选择</button></div>
-      <div class="pick-hint">支持 .txt / .json（必选，Cytoid 谱面格式）</div>
-      <div class="pick-row"><label>背景</label><input type="text" id="pjBg" placeholder="未选择（可选）" readonly /><button class="mini-btn" data-kind="background">选择</button></div>
-      <div class="pick-hint">支持 .png / .jpg / .jpeg</div>
-      <div class="pick-row"><label>StoryBoard</label><input type="text" id="pjSb" placeholder="未选择（可选）" readonly /><button class="mini-btn" data-kind="storyboard">选择</button></div>
-      <div class="pick-hint">支持 .json；未选择将创建空白 StoryBoard</div>
-      <div class="help-text">创建项目后，所选文件会被复制到项目文件夹（.ctr 所在目录），并生成 level.json。</div>`;
+      <div class="pick-row"><label>${__t('项目名称')}</label><input type="text" id="pjName" placeholder="${__t('例如：My Storyboard Level')}" /></div>
+      <div class="pick-row"><label>${__t('关卡ID')}</label><input type="text" id="pjLevelId" placeholder="charter.title" /></div>
+      <div class="pick-hint">${__t('只包含小写字母、数字、下划线、短横杠和点；留空则根据项目名称自动生成')}</div>
+      <div class="pick-row"><label>${__t('音乐')}</label><input type="text" id="pjMusic" placeholder="${__t('未选择')}" readonly /><button class="mini-btn" data-kind="music">${__t('选择')}</button></div>
+      <div class="pick-hint">${__t('支持 .mp3 / .ogg / .wav / .wma / .aac（必选）')}</div>
+      <div class="pick-row"><label>${__t('谱面')}</label><input type="text" id="pjChart" placeholder="${__t('未选择')}" readonly /><button class="mini-btn" data-kind="chart">${__t('选择')}</button></div>
+      <div class="pick-hint">${__t('支持 .txt / .json（必选，Cytoid 谱面格式）')}</div>
+      <div class="pick-row"><label>${__t('背景')}</label><input type="text" id="pjBg" placeholder="${__t('未选择（可选）')}" readonly /><button class="mini-btn" data-kind="background">${__t('选择')}</button></div>
+      <div class="pick-hint">${__t('支持 .png / .jpg / .jpeg')}</div>
+      <div class="pick-row"><label>${__t('StoryBoard')}</label><input type="text" id="pjSb" placeholder="${__t('未选择（可选）')}" readonly /><button class="mini-btn" data-kind="storyboard">${__t('选择')}</button></div>
+      <div class="pick-hint">${__t('支持 .json；未选择将创建空白 StoryBoard')}</div>
+      <div class="help-text">${__t('创建项目后，所选文件会被复制到项目文件夹（.ctr 所在目录），并生成 level.json。')}</div>`;
     openModal('新建 Cyster 项目', body, [
       { label: '取消', cls: '' },
       { label: '创建项目', cls: 'primary' }
@@ -8141,7 +8142,7 @@
       : '从未保存';
     const choice = await confirmDialog(
       '有未保存的修改',
-      `最后一次保存在${lastText}，${actionLabel}会遗失自最后一次保存以来的所有内容。`,
+      `${__t('最后一次保存在')}${lastText}，${actionLabel}${__t('会遗失自最后一次保存以来的所有内容。')}`,
       [
         { label: '取消', cls: '' },
         { label: '不保存', cls: '' },
@@ -8349,63 +8350,63 @@
     };
     const metaPane = `
       <div class="le-grid">
-        <div class="le-field"><label>版本</label><input id="leVersion" type="number" min="1" value="${esc(level.version != null ? level.version : 1)}" /></div>
-        <div class="le-field le-span2"><label>ID</label><input id="leId" value="${esc(level.id || '')}" placeholder="charter.title" /></div>
-        <div class="le-hint le-span2">只包含小写字母、数字、下划线、短横杠和点，并至少带有一个点分隔符。示例：charter.title</div>
-        <div class="le-field"><label>歌曲标题</label><input id="leTitle" value="${esc(level.title || '')}" /></div>
-        <div class="le-field"><label>标题的英文译文</label><input id="leTitleLocalized" value="${esc(level.title_localized || '')}" /></div>
-        <div class="le-field"><label>歌曲作者</label><input id="leArtist" value="${esc(level.artist || '')}" /></div>
-        <div class="le-field"><label>歌曲作者的英文译文</label><input id="leArtistLocalized" value="${esc(level.artist_localized || '')}" /></div>
-        <div class="le-field le-span2"><label>歌曲来源 URL</label><input id="leArtistSource" value="${esc(level.artist_source || '')}" /></div>
-        <div class="le-field"><label>曲绘画师名</label><input id="leIllustrator" value="${esc(level.illustrator || '')}" /></div>
-        <div class="le-field"><label>曲绘画师名的英文译文</label><input id="leIllustratorLocalized" value="${esc(level.illustrator_localized || '')}" /></div>
-        <div class="le-field le-span2"><label>曲绘来源 URL</label><input id="leIllustratorSource" value="${esc(level.illustrator_source || '')}" /></div>
-        <div class="le-field"><label>谱面作者</label><input id="leCharter" value="${esc(level.charter || '')}" /></div>
-        <div class="le-field"><label>故事板作者</label><input id="leStoryboarder" value="${esc(level.storyboarder || '')}" /></div>
+        <div class="le-field"><label>${__t('版本')}</label><input id="leVersion" type="number" min="1" value="${esc(level.version != null ? level.version : 1)}" /></div>
+        <div class="le-field le-span2"><label>${__t('ID')}</label><input id="leId" value="${esc(level.id || '')}" placeholder="charter.title" /></div>
+        <div class="le-hint le-span2">${__t('只包含小写字母、数字、下划线、短横杠和点，并至少带有一个点分隔符。示例：charter.title')}</div>
+        <div class="le-field"><label>${__t('歌曲标题')}</label><input id="leTitle" value="${esc(level.title || '')}" /></div>
+        <div class="le-field"><label>${__t('标题的英文译文')}</label><input id="leTitleLocalized" value="${esc(level.title_localized || '')}" /></div>
+        <div class="le-field"><label>${__t('歌曲作者')}</label><input id="leArtist" value="${esc(level.artist || '')}" /></div>
+        <div class="le-field"><label>${__t('歌曲作者的英文译文')}</label><input id="leArtistLocalized" value="${esc(level.artist_localized || '')}" /></div>
+        <div class="le-field le-span2"><label>${__t('歌曲来源 URL')}</label><input id="leArtistSource" value="${esc(level.artist_source || '')}" /></div>
+        <div class="le-field"><label>${__t('曲绘画师名')}</label><input id="leIllustrator" value="${esc(level.illustrator || '')}" /></div>
+        <div class="le-field"><label>${__t('曲绘画师名的英文译文')}</label><input id="leIllustratorLocalized" value="${esc(level.illustrator_localized || '')}" /></div>
+        <div class="le-field le-span2"><label>${__t('曲绘来源 URL')}</label><input id="leIllustratorSource" value="${esc(level.illustrator_source || '')}" /></div>
+        <div class="le-field"><label>${__t('谱面作者')}</label><input id="leCharter" value="${esc(level.charter || '')}" /></div>
+        <div class="le-field"><label>${__t('故事板作者')}</label><input id="leStoryboarder" value="${esc(level.storyboarder || '')}" /></div>
       </div>
       <div class="le-files">
-        <div class="le-field"><label>歌曲</label><input id="leMusic" readonly value="${esc(lvlMusic)}" /><button class="mini-btn" data-file="music">选择</button></div>
-        <div class="le-field"><label>歌曲预览</label><input id="leMusicPreview" readonly value="${esc(lvlPreview)}" placeholder="无" /><button class="mini-btn" data-file="preview">选择</button><button class="mini-btn le-clear" data-clear="preview">×</button></div>
-        <div class="le-field"><label>曲绘</label><input id="leBackground" readonly value="${esc(lvlBg)}" placeholder="无" /><button class="mini-btn" data-file="background">选择</button><button class="mini-btn le-clear" data-clear="background">×</button></div>
+        <div class="le-field"><label>${__t('歌曲')}</label><input id="leMusic" readonly value="${esc(lvlMusic)}" /><button class="mini-btn" data-file="music">${__t('选择')}</button></div>
+        <div class="le-field"><label>${__t('歌曲预览')}</label><input id="leMusicPreview" readonly value="${esc(lvlPreview)}" placeholder="${__t('无')}" /><button class="mini-btn" data-file="preview">${__t('选择')}</button><button class="mini-btn le-clear" data-clear="preview">×</button></div>
+        <div class="le-field"><label>${__t('曲绘')}</label><input id="leBackground" readonly value="${esc(lvlBg)}" placeholder="${__t('无')}" /><button class="mini-btn" data-file="background">${__t('选择')}</button><button class="mini-btn le-clear" data-clear="background">×</button></div>
       </div>`;
 
     const renderChartsList = () => charts.map((c, i) => `
       <div class="le-chart" data-chart="${i}">
         <div class="le-chart-head">
-          <span class="le-chart-title">难度 ${i + 1}${c.type ? ' · ' + c.type : ''}</span>
-          <button class="le-chart-del" data-del="${i}">删除此难度</button>
+          <span class="le-chart-title">${__t('难度')} ${i + 1}${c.type ? ' · ' + c.type : ''}</span>
+          <button class="le-chart-del" data-del="${i}">${__t('删除此难度')}</button>
         </div>
         <div class="le-grid">
-          <div class="le-field"><label>难度类型</label><select data-f="type" data-i="${i}">
+          <div class="le-field"><label>${__t('难度类型')}</label><select data-f="type" data-i="${i}">
             ${stdTypes.map((t) => `<option value="${t}" ${c.type === t ? 'selected' : ''}>${t}</option>`).join('')}
           </select></div>
-          <div class="le-field"><label>难度名称</label><input data-f="name" data-i="${i}" value="${esc(c.name)}" placeholder="可选" /></div>
-          <div class="le-field"><label>谱面文件</label><input data-f="path" data-i="${i}" readonly value="${esc(c.path)}" /><button class="mini-btn" data-pick="path" data-i="${i}">选择</button></div>
-          <div class="le-field"><label>替换歌曲</label><input data-f="music" data-i="${i}" readonly value="${esc(c.music)}" placeholder="跟随关卡音乐" /><button class="mini-btn" data-pick="music" data-i="${i}">选择</button><button class="mini-btn le-clear" data-clear="music" data-i="${i}">×</button></div>
-          <div class="le-field"><label>难度</label><input class="le-slider" type="range" min="0" max="16" step="1" data-f="difficulty" data-i="${i}" value="${esc(c.difficulty)}" /><span class="le-diff-label" data-difflabel="${i}">${difficultyDisplayLabel(c.difficulty)}</span></div>
-          <div class="le-field"><label>故事板</label><input data-f="storyboard" data-i="${i}" readonly value="${esc(c.storyboard)}" placeholder="无" /><button class="mini-btn" data-pick="storyboard" data-i="${i}">选择</button><button class="mini-btn le-clear" data-clear="storyboard" data-i="${i}">×</button></div>
+          <div class="le-field"><label>${__t('难度名称')}</label><input data-f="name" data-i="${i}" value="${esc(c.name)}" placeholder="${__t('可选')}" /></div>
+          <div class="le-field"><label>${__t('谱面文件')}</label><input data-f="path" data-i="${i}" readonly value="${esc(c.path)}" /><button class="mini-btn" data-pick="path" data-i="${i}">${__t('选择')}</button></div>
+          <div class="le-field"><label>${__t('替换歌曲')}</label><input data-f="music" data-i="${i}" readonly value="${esc(c.music)}" placeholder="${__t('跟随关卡音乐')}" /><button class="mini-btn" data-pick="music" data-i="${i}">${__t('选择')}</button><button class="mini-btn le-clear" data-clear="music" data-i="${i}">×</button></div>
+          <div class="le-field"><label>${__t('难度')}</label><input class="le-slider" type="range" min="0" max="16" step="1" data-f="difficulty" data-i="${i}" value="${esc(c.difficulty)}" /><span class="le-diff-label" data-difflabel="${i}">${difficultyDisplayLabel(c.difficulty)}</span></div>
+          <div class="le-field"><label>${__t('故事板')}</label><input data-f="storyboard" data-i="${i}" readonly value="${esc(c.storyboard)}" placeholder="${__t('无')}" /><button class="mini-btn" data-pick="storyboard" data-i="${i}">${__t('选择')}</button><button class="mini-btn le-clear" data-clear="storyboard" data-i="${i}">×</button></div>
         </div>
       </div>`).join('') || __t('<div class="help-text">暂无谱面</div>');
 
     const chartsPane = `
       <div id="leChartsList">${renderChartsList()}</div>
-      <div class="le-add-wrap"><button id="leAddChart" class="le-add">＋ 添加谱面</button></div>`;
+      <div class="le-add-wrap"><button id="leAddChart" class="le-add">＋ ${__t('添加谱面')}</button></div>`;
 
     const body = `
       <div class="le-editor">
         <div class="le-tabs">
-          <button class="le-tab active" data-tab="meta">关卡信息</button>
-          <button class="le-tab" data-tab="charts">谱面难度</button>
+          <button class="le-tab active" data-tab="meta">${__t('关卡信息')}</button>
+          <button class="le-tab" data-tab="charts">${__t('谱面难度')}</button>
         </div>
         <div class="le-pane" data-pane="meta">${metaPane}</div>
         <div class="le-pane hidden" data-pane="charts">${chartsPane}</div>
       </div>`;
 
-    $('#modalTitle').textContent = '关卡设置';
+    $('#modalTitle').textContent = __t('关卡设置');
     $('#modalBody').innerHTML = body;
     $('#modalFoot').innerHTML = `
-      <button class="dlg-btn" id="leClose">关闭</button>
-      <button class="dlg-btn primary" id="leSave">保存</button>`;
+      <button class="dlg-btn" id="leClose">${__t('关闭')}</button>
+      <button class="dlg-btn primary" id="leSave">${__t('保存')}</button>`;
     $('#modalMask').classList.remove('hidden');
     $('#modalBox').classList.add('modal-wide');
 
@@ -10368,7 +10369,7 @@
         // 跳转
         { label: '跳转至note的渐入时间', action: () => setTime(note.intro_time, false) },
         ...(note.type === 1 || note.type === 2
-          ? [{ label: '跳转至end:' + note.id, action: () => setTime(note.end_time, false) }]
+          ? [{ label: __t('跳转至end:') + note.id, action: () => setTime(note.end_time, false) }]
           : []),
         { sep: true },
         // 复制时间
@@ -10391,10 +10392,10 @@
         { sep: true },
         // 编辑 / 创建 / 单独编辑 note_controller
         mergedBlock
-          ? { label: `单独编辑note${note.id}的note_controller（位于合并时间块 ${mergedBlock.obj.id}）`, action: () => openNoteInMergedBlock(note.id, mergedBlock.obj) }
+          ? { label: __t('单独编辑note') + note.id + __t('的note_controller（位于合并时间块 ') + mergedBlock.obj.id + __t('）'), action: () => openNoteInMergedBlock(note.id, mergedBlock.obj) }
           : nc
-            ? { label: `编辑note${note.id}的note_controller`, action: () => selectObject(nc.id, null) }
-            : { label: `对此note（${note.id}）创建note_controller`, action: () => openPendingNoteController(note.id) },
+            ? { label: __t('编辑note') + note.id + __t('的note_controller'), action: () => selectObject(nc.id, null) }
+            : { label: __t('对此note（') + note.id + __t('）创建note_controller'), action: () => openPendingNoteController(note.id) },
         // drag / C-drag：专属选择整条锁链（链头沿 next_id 一路收集）。
         ...(note.type === 3 || note.type === 4 || note.type === 6 || note.type === 7
           ? [{ sep: true }, { label: '选择整条锁链', action: () => selectDragChain(note.id) }]

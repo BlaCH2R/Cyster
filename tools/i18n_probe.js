@@ -85,6 +85,36 @@ app.whenReady().then(async () => {
     }
     if (res.uiTwFile !== '檔案') throw new Error('欢迎页下拉切换失效: ' + res.uiTwFile);
     if (res.uiLangSaved !== 'zh-TW') throw new Error('欢迎页切换未持久化: ' + res.uiLangSaved);
+
+    // Tips 英文翻译：全部 93 条正文/标题在 en 下应无中文。
+    await js('window.SBi18n.setLanguage("en", false); return true;');
+    const tipCheck = await js('const tips = window.CYSTER_TIPS || []; let bad = 0; for (const t of tips) { const b = window.SBi18n.t(t.body || ""); const tt = window.SBi18n.t(t.title || "Tips:"); if (/[\u4e00-\u9fff]/.test(b) || /[\u4e00-\u9fff]/.test(tt)) bad++; } return bad;');
+    res.tipUntranslated = tipCheck;
+    if (tipCheck) throw new Error('Tips 英文翻译有遗漏: ' + tipCheck + ' 条');
+
+    // 手册英文翻译：打开手册窗口，检查关键段落为英文。
+    await js('window.sbAPI.setSettings({ language: "en" }).then(() => true); return true;');
+    await js('window.sbAPI.manualOpen(); return true;');
+    let manualWin = null;
+    for (let i = 0; i < 100 && !manualWin; i++) {
+      const cand = BrowserWindow.getAllWindows().find((w) => w !== mainWin && !w.isDestroyed());
+      if (cand) manualWin = cand;
+      else await sleep(100);
+    }
+    if (!manualWin) throw new Error('手册窗口未打开');
+    let manualText = '';
+    for (let i = 0; i < 150; i++) {
+      manualText = await manualWin.webContents.executeJavaScript(
+        'document.getElementById("docxContainer") ? document.getElementById("docxContainer").innerText : ""');
+      if (manualText.includes('Important Notes Before You Start')) break;
+      await sleep(200);
+    }
+    res.manualHasEn = manualText.includes('Important Notes Before You Start');
+    res.manualHasTocEn = manualText.includes('Table of Contents');
+    res.manualHasZh = /[\u4e00-\u9fff]/.test(manualText.slice(0, 8000));
+    if (!res.manualHasEn || !res.manualHasTocEn) {
+      throw new Error('手册英文翻译未生效: en=' + res.manualHasEn + ' toc=' + res.manualHasTocEn);
+    }
     res.ok = true;
   } catch (e) {
     res.error = String(e && (e.stack || e.message) || e);

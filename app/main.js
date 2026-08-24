@@ -100,6 +100,13 @@ ipcMain.handle('update:install', async () => {
   }
 });
 
+// 主窗口语言切换后，通知独立工具窗口（手册 / Note 选择器）同步刷新。
+ipcMain.on('app:language-changed', (e, lang) => {
+  for (const w of [manualWindow, noteSelectorWindow]) {
+    if (w && !w.isDestroyed()) w.webContents.send('app:language-changed', lang);
+  }
+});
+
 function createWindow() {
   // Remove the default Electron application menu entirely: its accelerators
   // (Ctrl+W close, Ctrl+R reload, Ctrl+Shift+I devtools, ...) are web/browser

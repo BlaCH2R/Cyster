@@ -78,6 +78,37 @@ function wireTocJumps(container) {
   container.dataset.tocTargets = String(targets.size);
 }
 
+// 手册正文翻译：
+// - 繁体：对每个文本节点做 OpenCC 转换（保留行内格式，全量覆盖）；
+// - 英文：按段落全文查 CYSTER_MANUAL_EN 词典，命中则整段替换（含图片的段落跳过）。
+function translateManualDoc(container) {
+  if (!container || !window.SBi18n) return;
+  const lang = window.SBi18n.getLanguage();
+  if (lang === 'en') {
+    const EN = window.CYSTER_MANUAL_EN || {};
+    container.querySelectorAll('p').forEach((p) => {
+      if (p.querySelector('img, table')) return;
+      const t = (p.textContent || '').trim();
+      if (t && EN[t] != null) {
+        const span = document.createElement('span');
+        span.textContent = EN[t];
+        p.replaceChildren(span);
+      }
+    });
+  } else if (lang === 'zh-TW') {
+    const nodes = [];
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => {
+        const el = n.parentElement;
+        if (!el || el.closest('script,style')) return NodeFilter.FILTER_REJECT;
+        return /[\u4e00-\u9fff]/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((n) => { n.nodeValue = window.SBi18n.t(n.nodeValue); });
+  }
+}
+
 async function loadManual() {
   const body = $('#manualBody');
   const container = $('#docxContainer');
@@ -113,6 +144,7 @@ async function loadManual() {
     baseWidth = docxEl ? docxEl.offsetWidth : 820;
     setZoom(4);
     wireTocJumps(container);
+    translateManualDoc(container);
     status.textContent = '';
   } catch (e) {
     status.textContent = $t('渲染失败：') + (e && e.message ? e.message : e);
@@ -143,6 +175,14 @@ $('#btnZoomFit').addEventListener('click', () => {
     if (window.SBi18n) {
       window.SBi18n.setLanguage((s && s.language) || 'zh-CN', false);
       window.SBi18n.applyStatic(document);
+    }
+    if (window.sbAPI && window.sbAPI.onLanguageChanged) {
+      window.sbAPI.onLanguageChanged((lang) => {
+        if (!window.SBi18n) return;
+        window.SBi18n.setLanguage(lang, false);
+        window.SBi18n.applyStatic(document);
+        loadManual();
+      });
     }
   } catch (e) {}
 })();

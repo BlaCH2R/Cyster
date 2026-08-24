@@ -56,4 +56,8 @@ contextBridge.exposeInMainWorld('sbAPI', {
   onUpdateAvailable: (cb) => ipcRenderer.on('update:available', (e, p) => cb(p)),
   onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (e, p) => cb(p)),
   onUpdateDownloaded: (cb) => ipcRenderer.on('update:downloaded', (e, p) => cb(p))
+  ,
+  // 语言切换联动：主窗口切换后通知独立窗口。
+  notifyLanguageChanged: (lang) => ipcRenderer.send('app:language-changed', lang),
+  onLanguageChanged: (cb) => ipcRenderer.on('app:language-changed', (e, lang) => cb(lang))
 });
