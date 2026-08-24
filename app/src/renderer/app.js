@@ -7803,7 +7803,12 @@
   function openModal(title, bodyHtml, buttons, onAction) {
     if (window.SBi18n) {
       title = window.SBi18n.t(title);
-      buttons = (buttons || []).map((b) => Object.assign({}, b, { label: window.SBi18n.t(b.label) }));
+      // 按钮显示用翻译后的文字，但保留原始标签（_origLabel）供回调/调用方按
+      // 中文标签做分支判断（如 choice === '取消'），否则切语言后流程全部断裂。
+      buttons = (buttons || []).map((b) => Object.assign({}, b, {
+        label: window.SBi18n.t(b.label),
+        _origLabel: b.label
+      }));
     }
     $('#modalTitle').textContent = title;
     $('#modalBody').innerHTML = bodyHtml;
@@ -7815,7 +7820,7 @@
       btn.textContent = b.label;
       btn.addEventListener('click', () => {
         closeModal();
-        if (onAction) onAction(b);
+        if (onAction) onAction({ ...b, label: b._origLabel != null ? b._origLabel : b.label });
       });
       foot.appendChild(btn);
     }
@@ -8137,10 +8142,13 @@
     const p = (n) => String(n).padStart(2, '0');
     const lastText = state.lastSavedAt
       ? `${state.lastSavedAt.getFullYear()}-${p(state.lastSavedAt.getMonth() + 1)}-${p(state.lastSavedAt.getDate())} ${p(state.lastSavedAt.getHours())}:${p(state.lastSavedAt.getMinutes())}`
-      : '从未保存';
+      : __t('从未保存');
+    const body = state.lastSavedAt
+      ? `${__t('最后一次保存在')}${lastText}${__t('，')}${__t(actionLabel)}${__t('会遗失自最后一次保存以来的所有内容。')}`
+      : `${__t('从未保存')}${__t('，')}${__t(actionLabel)}${__t('会遗失自最后一次保存以来的所有内容。')}`;
     const choice = await confirmDialog(
       '有未保存的修改',
-      `${__t('最后一次保存在')}${lastText}，${actionLabel}${__t('会遗失自最后一次保存以来的所有内容。')}`,
+      body,
       [
         { label: '取消', cls: '' },
         { label: '不保存', cls: '' },
@@ -9690,10 +9698,13 @@
         const p = (n) => String(n).padStart(2, '0');
         const lastText = state.lastSavedAt
           ? `${state.lastSavedAt.getFullYear()}-${p(state.lastSavedAt.getMonth() + 1)}-${p(state.lastSavedAt.getDate())} ${p(state.lastSavedAt.getHours())}:${p(state.lastSavedAt.getMinutes())}`
-          : '从未保存';
+          : __t('从未保存');
+        const body = state.lastSavedAt
+          ? `${__t('最后一次保存在')}${lastText}${__t('，现在退出会遗失自最后一次保存以来的所有内容，继续吗？')}`
+          : `${__t('从未保存')}${__t('，现在退出会遗失自最后一次保存以来的所有内容，继续吗？')}`;
         const choice = await confirmDialog(
           '有未保存的修改',
-          `${__t('最后一次保存在')}${lastText}${__t('，现在退出会遗失自最后一次保存以来的所有内容，继续吗？')}`,
+          body,
           [
             { label: '取消', cls: '' },
             { label: '确认', cls: '' },

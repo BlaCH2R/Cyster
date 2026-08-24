@@ -38,6 +38,7 @@ window.CYSTER_I18N_EN = {
   "返回修改": "Back to edit",
   "仍要保存": "Save anyway",
   "，现在退出会遗失自最后一次保存以来的所有内容，继续吗？": ". Quitting now will lose all changes since the last save. Continue?",
+  "，": ", ",
   "删除选中的 ": "Delete selected ",
   " 个关键帧": " keyframes",
   "」(": "” (",
