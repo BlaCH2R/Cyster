@@ -5700,7 +5700,7 @@
 
   function fmtLiveStat(v) {
     if (v === undefined || v === null) return '—';
-    if (typeof v === 'boolean') return v ? '开' : '关';
+    if (typeof v === 'boolean') return __t(v ? '开' : '关');
     if (typeof v === 'number') return String(Math.round(v * 1000) / 1000);
     if (Array.isArray(v)) return '[' + v.length + ' ' + __t('项') + ']';
     return String(v);
@@ -5712,18 +5712,18 @@
     if (preview.evaluate) preview.evaluate(preview.time);
     const m = preview.mergedCtrl || {};
     const rows = [
-      ['相机透视', 'perspective'], ['视野 FOV', 'fov'],
-      ['相机 X', 'xPx'], ['相机 Y', 'yPx'], ['相机 Z', 'zPx'],
-      ['相机旋转 X', 'rot_x'], ['相机旋转 Y', 'rot_y'], ['相机旋转 Z', 'rot_z'],
-      ['场景不透明度', 'storyboard_opacity'], ['UI 不透明度', 'ui_opacity'],
-      ['扫描线不透明度', 'scanline_opacity'], ['背景遮罩', 'background_dim'],
-      ['Note 不透明度倍率', 'note_opacity_multiplier'], ['扫描线颜色', 'scanline_color'],
-      ['扫描线位置', 'scanline_posPx'], ['扫描线平滑', 'scanline_smoothing'],
-      ['Note 外圈颜色', 'note_ring_color']
+      [__t('相机透视'), 'perspective'], [__t('视野 FOV'), 'fov'],
+      [__t('相机 X'), 'xPx'], [__t('相机 Y'), 'yPx'], [__t('相机 Z'), 'zPx'],
+      [__t('相机旋转 X'), 'rot_x'], [__t('相机旋转 Y'), 'rot_y'], [__t('相机旋转 Z'), 'rot_z'],
+      [__t('场景不透明度'), 'storyboard_opacity'], [__t('UI 不透明度'), 'ui_opacity'],
+      [__t('扫描线不透明度'), 'scanline_opacity'], [__t('背景遮罩'), 'background_dim'],
+      [__t('Note 不透明度倍率'), 'note_opacity_multiplier'], [__t('扫描线颜色'), 'scanline_color'],
+      [__t('扫描线位置'), 'scanline_posPx'], [__t('扫描线平滑'), 'scanline_smoothing'],
+      [__t('Note 外圈颜色'), 'note_ring_color']
     ];
     const seenToggles = new Set(['perspective', 'override_scanline_pos']);
     for (const card of Schema.CONTROLLER_CARDS) {
-      if (card.toggle && !seenToggles.has(card.toggle)) rows.push([card.label, card.toggle]);
+      if (card.toggle && !seenToggles.has(card.toggle)) rows.push([__t(card.label), card.toggle]);
     }
     const statsHtml = rows.map(([label, key]) =>
       `<div class="field"><label>${escapeHtml(label)}</label>` +

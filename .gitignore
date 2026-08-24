@@ -62,6 +62,7 @@ tools/*
 !tools/i18n_manual_debug.js
 !tools/i18n_schema_check.js
 !tools/i18n_close_dialog_probe.js
+!tools/i18n_livestats_probe.js
 
 # ---- 通用 ----
 *.log

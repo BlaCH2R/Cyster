@@ -365,7 +365,7 @@
   // the controller option cards).
   function renderField(row, f, state, onChange, readOnly, opts) {
     const label = document.createElement('label');
-    label.textContent = f.label;
+    label.textContent = $t(f.label);
     // 带提示（tip）的字段：在标签文字后追加圆形 “i” 图标，悬停显示浮现式提示框。
     if (f.tip) {
       const tip = document.createElement('span');
@@ -545,7 +545,7 @@
         reset.type = 'button';
         reset.className = 'fill12-reset';
         reset.title = $t('重置为游戏默认颜色');
-        reset.textContent = '↺ 默认';
+        reset.textContent = $t('↺ 默认');
         reset.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -570,7 +570,7 @@
           const head = document.createElement('div');
           head.className = 'pos-head';
           const title = document.createElement('span');
-          title.textContent = '端点列表';
+          title.textContent = $t('端点列表');
           head.appendChild(title);
           wrap.appendChild(head);
           const ph = document.createElement('div');
@@ -589,7 +589,7 @@
             const head = document.createElement('div');
             head.className = 'pos-head';
             const title = document.createElement('span');
-            title.textContent = '端点列表 (' + pts.length + ')';
+            title.textContent = $t('端点列表 (') + pts.length + ')';
             const add = document.createElement('button');
             add.className = 'mini-btn pos-add';
             add.innerHTML = `${svgIcon('plus', 12, true)}添加端点`;
@@ -868,20 +868,20 @@
 
       const title = document.createElement('span');
       title.className = 'ctrl-card-title';
-      title.textContent = card.label;
+      title.textContent = $t(card.label);
       head.appendChild(title);
 
       if (!enabledOnly && ownerId != null) {
         const tag = document.createElement('span');
         tag.className = 'ctrl-card-owner';
-        tag.textContent = '已占用';
+        tag.textContent = $t('已占用');
         head.appendChild(tag);
       }
 
       if (card.toggle) {
         const cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.title = card.label + $t(' 开关（关闭时写入显式 false）');
+        cb.title = $t(card.label) + $t(' 开关（关闭时写入显式 false）');
         const multiToggle = multi && state[card.toggle] === MULTI_VALUE;
         cb.checked = multiToggle ? false : !!state[card.toggle];
         cb.indeterminate = multiToggle;
