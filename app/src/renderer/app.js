@@ -1099,7 +1099,7 @@
     imgs.forEach((f, i) => { f.display = labels[i]; });
     const addBtn = document.createElement('button');
     addBtn.className = 'mini-btn';
-    addBtn.innerHTML = `${svgIcon('plus', 12, true)}添加素材`;
+    addBtn.innerHTML = `${svgIcon('plus', 12, true)}${__t('添加素材')}`;
     addBtn.addEventListener('click', addImageToLibrary);
     el.appendChild(addBtn);
     if (!imgs.length) {
@@ -1170,9 +1170,9 @@
   }
 
   async function addImageToLibrary() {
-    if (!state.levelDir) { toast('请先打开项目', true); return; }
+    if (!state.levelDir) { toast(__t('请先打开项目'), true); return; }
     const p = await window.sbAPI.pickFile({
-      title: '添加素材',
+      title: __t('添加素材'),
       filters: [{ name: '图片/视频', extensions: ['png', 'jpg', 'jpeg', 'mp4', 'webm'] }]
     });
     if (!p) return;
@@ -1182,7 +1182,7 @@
   // 按路径把外部图片/视频加入素材库：主进程会先把文件拷贝进项目文件夹，
   // 素材库始终引用项目文件夹内的副本。
   async function addAssetByPath(p) {
-    if (!state.levelDir) { toast('请先打开项目', true); return; }
+    if (!state.levelDir) { toast(__t('请先打开项目'), true); return; }
     try {
       const name = await window.sbAPI.levelAddAsset({ levelDir: state.levelDir, filePath: p });
       if (state.manualImages.includes(name)) {
@@ -5822,7 +5822,7 @@
       const noCtrl = selNoteIds.length === 1 && !sharedNc;
       const singleWithNc = selNoteIds.length === 1 && !!sharedNc;
       const selBtnHtml = showSelBtn
-        ? `<div class="prop-section" style="border-bottom:none"><button class="ctrl-card-add" id="btnEditNoteSelector">${noCtrl ? '创建note_controller' : (singleWithNc ? '编辑note_controller' : '编辑note选择器')}</button></div>`
+        ? `<div class="prop-section" style="border-bottom:none"><button class="ctrl-card-add" id="btnEditNoteSelector">${noCtrl ? __t('创建note_controller') : (singleWithNc ? __t('编辑note_controller') : __t('编辑note选择器'))}</button></div>`
         : '';
       const wireSelBtn = () => {
         const btn = $('#btnEditNoteSelector');
@@ -7740,7 +7740,7 @@
     if (type === 'controller') { promptAddController(); return; }
     // A sprite without an image can never render; require a library asset.
     if (type === 'sprite' && !(state.manualImages || []).length) {
-      toast('素材库中没有文件，请先添加素材', true);
+      toast(__t('素材库中没有文件，请先添加素材'), true);
       return;
     }
     snapshot();
@@ -8894,7 +8894,7 @@
       <div class="pick-row"><label data-i18n="界面语言">界面语言</label><select id="setLanguage">
         <option value="zh-CN">简体中文 / Simplified Chinese</option>
         <option value="zh-TW">繁體中文 / Traditional Chinese</option>
-        <option value="en">English / English</option>
+        <option value="en">English</option>
       </select></div>
       <div class="help-text" style="margin-top:8px"><b data-i18n="关于">关于</b><span data-i18n="：Cyster v0.1beta — 基于 ">：Cyster v0.1beta — 基于 </span><a href="#" id="ghLink">Cytoid 官方 GitHub</a><span data-i18n=" 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。"> 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。</span></div>`, [
       { label: '关闭', cls: 'primary' }

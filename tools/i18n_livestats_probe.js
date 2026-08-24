@@ -70,11 +70,30 @@ app.whenReady().then(async () => {
     await js('await window.__sb.loadLevelInfo(' + JSON.stringify(info) + '); return true;');
     await sleep(2000);
 
+    res.lang = await js('return window.SBi18n.getLanguage();');
+    // 素材库上方“添加素材”按钮英文检查
+    res.addAssetBtn = await js(`return (document.querySelector('#assetList .mini-btn') || { textContent: null }).textContent;`);
+    if (!res.addAssetBtn || !res.addAssetBtn.includes('Add asset')) {
+      throw new Error('素材库“添加素材”按钮未翻译: ' + res.addAssetBtn);
+    }
+    // 点击 note → note 属性界面顶部“编辑note controller”按钮英文检查
+    const chartData = JSON.parse(fs.readFileSync(path.join(DIR, chart.path), 'utf8'));
+    const noteSrc = (chartData.note_list && chartData.note_list.length)
+      ? chartData.note_list
+      : ((chartData.notes && chartData.notes.length) ? chartData.notes : null);
+    const firstNoteId = noteSrc ? noteSrc[0].id : null;
+    if (firstNoteId == null) throw new Error('图表中未找到 note');
+    await js('window.__sb.selectObject("note::' + firstNoteId + '", null); return true;');
+    await sleep(400);
+    res.noteSelBtn = await js(`return (document.querySelector('#btnEditNoteSelector') || { textContent: null }).textContent;`);
+    if (!res.noteSelBtn) throw new Error('note 属性界面未渲染编辑按钮');
+    if (/[\u4e00-\u9fff]/.test(res.noteSelBtn)) {
+      throw new Error('note 属性界面编辑按钮未翻译: ' + res.noteSelBtn);
+    }
     // 打开 controller 实时统计面板（预览空白处点击的等效路径）
     await js('window.__sb.state.previewEmptyFocus = true; window.__sb.refreshAll(); return true;');
     await sleep(500);
 
-    res.lang = await js('return window.SBi18n.getLanguage();');
     res.panelText = await js('return document.getElementById("propBody") ? document.getElementById("propBody").innerText.slice(0, 2000) : null;');
     res.panelHasZh = /[\u4e00-\u9fff]/.test(res.panelText || '');
     // 逐个卡片标题检查

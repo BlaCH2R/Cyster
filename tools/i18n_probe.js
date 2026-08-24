@@ -97,7 +97,7 @@ app.whenReady().then(async () => {
     if (res.twOpacity !== '不透明度') throw new Error('繁体 schema 未生效: ' + res.twOpacity);
     if (res.savedLang !== 'en') throw new Error('语言未持久化: ' + res.savedLang);
     if (!res.welcomeSelectOptions.includes('简体中文 / Simplified Chinese') ||
-        !res.welcomeSelectOptions.includes('English / English')) {
+        !res.welcomeSelectOptions.includes('English')) {
       throw new Error('欢迎页语言选项缺少双语标签: ' + JSON.stringify(res.welcomeSelectOptions));
     }
     if (res.uiTwFile !== '檔案') throw new Error('欢迎页下拉切换失效（重启后）: ' + res.uiTwFile);
