@@ -20,6 +20,20 @@ let manualWindow = null;
 // 只在打包后的应用里工作；开发/探针（electron . / tools 探针）一律跳过。
 let updaterReady = false;
 
+// 窗口标题按用户语言显示（标题在创建窗口时确定，从 settings.json 读取语言）。
+function uiLanguage() {
+  try {
+    const s = readJsonSafe(SETTINGS_FILE);
+    return (s && s.language) || 'zh-CN';
+  } catch (e) {
+    return 'zh-CN';
+  }
+}
+function localizedTitle(zh, tw, en) {
+  const l = uiLanguage();
+  return l === 'zh-TW' ? tw : l === 'en' ? en : zh;
+}
+
 function initAutoUpdater() {
   if (!app.isPackaged || updaterReady) return;
   updaterReady = true;
@@ -132,7 +146,7 @@ function openNoteSelectorWindow() {
     height: 460,
     minWidth: 360,
     minHeight: 460,
-    title: 'Note 选择器编辑器',
+    title: localizedTitle('Note 选择器编辑器', 'Note 選擇器編輯器', 'Note Selector Editor'),
     backgroundColor: '#14171c',
     alwaysOnTop: true, // R1：常驻置顶，方便与主窗口同时操作
     autoHideMenuBar: true,
@@ -192,7 +206,7 @@ function openManualWindow() {
     height: 780,
     minWidth: 640,
     minHeight: 520,
-    title: 'Cyster 使用手册',
+    title: localizedTitle('Cyster 使用手册', 'Cyster 使用手冊', 'Cyster User Manual'),
     backgroundColor: '#14171c',
     autoHideMenuBar: true,
     webPreferences: {

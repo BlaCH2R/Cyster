@@ -401,6 +401,7 @@
   }
 
   function toast(msg, isError) {
+    if (window.SBi18n) msg = window.SBi18n.t(msg);
     const wrap = $('#toastWrap');
     const t = document.createElement('div');
     t.className = 'toast' + (isError ? ' error' : '');
@@ -440,10 +441,15 @@
       const a = new Set((after[g] || []).map((o) => String(o && o.id)).filter(Boolean));
       for (const o of before[g] || []) if (o && o.id != null && !a.has(String(o.id))) removed.push({ g, id: String(o.id) });
     }
-    const listStr = (arr) => arr.slice(0, 3).map((x) => x.id).join('、') + (arr.length > 3 ? ' 等' : '');
-    const one = (arr, verb) => `${verb}${EDIT_GROUP_LABEL[arr[0].g] || '对象'}（${arr[0].id}）`;
-    const many = (arr, verb) => `${verb} ${arr.length} 个对象（${listStr(arr)}）`;
-    if (added.length && removed.length) return `添加 ${added.length} 个对象、删除 ${removed.length} 个对象`;
+    const i18n = window.SBi18n || { t: (s) => s, paren: (s) => '（' + s + '）' };
+    const t = (s) => i18n.t(s);
+    const paren = (s) => i18n.paren(s);
+    const listStr = (arr) => arr.slice(0, 3).map((x) => x.id).join('、') + (arr.length > 3 ? t(' 等') : '');
+    const one = (arr, verb) => t(verb) + (EDIT_GROUP_LABEL[arr[0].g] || t('对象')) + paren(arr[0].id);
+    const many = (arr, verb) => t(verb) + ' ' + arr.length + ' ' + t('个对象') + paren(listStr(arr));
+    if (added.length && removed.length) {
+      return t('添加') + ' ' + added.length + ' ' + t('个对象') + '、' + t('删除') + ' ' + removed.length + ' ' + t('个对象');
+    }
     if (added.length === 1) return one(added, '添加');
     if (added.length > 1) return many(added, '添加');
     if (removed.length === 1) return one(removed, '删除');
@@ -468,11 +474,11 @@
     if (modified === 1) {
       const { g, id } = modSample[0];
       const label = EDIT_GROUP_LABEL[g] || '对象';
-      if (kfDelta > 0) return `为${label}（${id}）添加关键帧`;
-      if (kfDelta < 0) return `为${label}（${id}）删除关键帧`;
-      return `修改${label}（${id}）的属性/关键帧`;
+      if (kfDelta > 0) return t('添加关键帧：') + label + paren(id);
+      if (kfDelta < 0) return t('删除关键帧：') + label + paren(id);
+      return t('修改：') + label + paren(id);
     }
-    if (modified > 1) return `修改 ${modified} 个对象的属性/关键帧`;
+    if (modified > 1) return t('修改') + ' ' + modified + ' ' + t('个对象的属性/关键帧');
     return null;
   }
 
@@ -480,8 +486,9 @@
     if (!before || !after) return null;
     const d = describeEditChange(before.sb, after.sb);
     if (d) return d;
-    if (JSON.stringify(before.ed || null) !== JSON.stringify(after.ed || null)) return '调整轨道布局/顺序';
-    if (JSON.stringify(before.cc || null) !== JSON.stringify(after.cc || null)) return '修改 Controller 属性卡片';
+    const t = (s) => (window.SBi18n ? window.SBi18n.t(s) : s);
+    if (JSON.stringify(before.ed || null) !== JSON.stringify(after.ed || null)) return t('调整轨道布局/顺序');
+    if (JSON.stringify(before.cc || null) !== JSON.stringify(after.cc || null)) return t('修改 Controller 属性卡片');
     return null;
   }
 
@@ -509,7 +516,7 @@
     // 撤销要真正生效：把恢复后的轨道布局与层级写回 .ctr / storyboard 文件，
     // 避免只是视觉恢复、重开后仍是整理后的状态。
     persistAfterUndo();
-    toast('已撤销：' + (desc || '上一步操作'));
+    toast((window.SBi18n ? window.SBi18n.t('已撤销：') : '已撤销：') + (desc || (window.SBi18n ? window.SBi18n.t('上一步操作') : '上一步操作')));
   }
 
   function redo() {
@@ -534,7 +541,7 @@
     renderProperties();
     requestRender();
     persistAfterUndo();
-    toast('已重做：' + (desc || '下一步操作'));
+    toast((window.SBi18n ? window.SBi18n.t('已重做：') : '已重做：') + (desc || (window.SBi18n ? window.SBi18n.t('下一步操作') : '下一步操作')));
   }
 
   function showContextMenu(x, y, items) {
@@ -7176,6 +7183,7 @@
   }
 
   function field(label, value, editable) {
+    if (window.SBi18n) label = window.SBi18n.t(label);
     return `<div class="field"><label>${label}</label><span style="flex:1;color:var(--text)">${escapeHtml(String(value))}</span></div>`;
   }
 
@@ -7794,6 +7802,10 @@
   // Modal
   // ---------------------------------------------------------------
   function openModal(title, bodyHtml, buttons, onAction) {
+    if (window.SBi18n) {
+      title = window.SBi18n.t(title);
+      buttons = (buttons || []).map((b) => Object.assign({}, b, { label: window.SBi18n.t(b.label) }));
+    }
     $('#modalTitle').textContent = title;
     $('#modalBody').innerHTML = bodyHtml;
     const foot = $('#modalFoot');
@@ -7822,7 +7834,7 @@
   function confirmDialog(title, messageHtml, buttons) {
     return new Promise((resolve) => {
       pendingConfirm = resolve;
-      openModal(title, `<div class="help-text">${messageHtml}</div>`, buttons, (btn) => {
+      openModal(title, `<div class="help-text">${window.SBi18n ? window.SBi18n.t(messageHtml) : messageHtml}</div>`, buttons, (btn) => {
         pendingConfirm = null;
         resolve(btn.label);
       });
@@ -7876,11 +7888,14 @@
       const r = await window.sbAPI.updateCheck();
       if (!r) return;
       if (r.dev) { toast('当前为开发模式，不进行在线更新检查'); return; }
-      if (!r.ok) { toast('检查更新失败：' + (r.error || '未知错误'), true); return; }
-      if (r.upToDate) toast('已是最新版本（v' + r.current + '）');
-      else toast('发现新版本 v' + r.available + '，正在后台下载…');
+      if (!r.ok) {
+        toast((window.SBi18n ? window.SBi18n.t('检查更新失败：') : '检查更新失败：') + (r.error || '未知错误'), true);
+        return;
+      }
+      if (r.upToDate) toast((window.SBi18n ? window.SBi18n.t('已是最新版本（v') : '已是最新版本（v') + r.current + '）');
+      else toast((window.SBi18n ? window.SBi18n.t('发现新版本 v') : '发现新版本 v') + r.available + (window.SBi18n ? window.SBi18n.t('，正在后台下载…') : '，正在后台下载…'));
     } catch (e) {
-      toast('检查更新失败：' + (e && e.message ? e.message : e), true);
+      toast((window.SBi18n ? window.SBi18n.t('检查更新失败：') : '检查更新失败：') + (e && e.message ? e.message : e), true);
     } finally {
       updateChecking = false;
     }
@@ -7889,7 +7904,7 @@
   function wireUpdateEvents() {
     if (!window.sbAPI.onUpdateAvailable) return;
     window.sbAPI.onUpdateAvailable((p) => {
-      toast('发现新版本 v' + (p && p.version ? p.version : '') + '，正在后台下载…');
+      toast((window.SBi18n ? window.SBi18n.t('发现新版本 v') : '发现新版本 v') + (p && p.version ? p.version : '') + (window.SBi18n ? window.SBi18n.t('，正在后台下载…') : '，正在后台下载…'));
     });
     window.sbAPI.onUpdateProgress(() => {});
     window.sbAPI.onUpdateDownloaded((p) => {
@@ -7907,7 +7922,8 @@
     const h = new Date().getHours();
     const greet = h < 6 ? '夜深了' : h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好';
     const el = $('#welcomeGreeting');
-    if (el) el.textContent = `${greet}，欢迎回来`;
+    const greeting = `${greet}，欢迎回来`;
+    if (el) el.textContent = window.SBi18n ? window.SBi18n.t(greeting) : greeting;
     document.body.classList.add('welcome-mode');
     showRandomTip();
     const manage = $('#welcomeManage');
@@ -8834,11 +8850,18 @@
   function showSettings() {
     const playerPath = (state.settings && state.settings.playerExe) || playerExeDefault();
     const playerPathTip = '选择 Cytoidplayer.exe 所在的文件夹（保存后生效）；加载关卡时会先把当前关卡复制到其 player 文件夹（原内容移入新建的 Backup file+时间戳 文件夹），再启动 Cytoidplayer';
+    const curLang = window.SBi18n ? window.SBi18n.getLanguage() : 'zh-CN';
     openModal('设置', `
-      <div class="pick-row"><label>Cytoidplayer路径</label><span id="setPlayerExe" class="settings-path">${escapeHtml(playerPath)}</span><button type="button" class="mini-btn" id="btnPickPlayerFolder">选择文件夹…</button><span class="field-tip" id="playerPathTip">i</span></div>
-      <div class="help-text" style="margin-top:8px"><b>关于</b>：Cyster v0.1beta — 基于 <a href="#" id="ghLink">Cytoid 官方 GitHub</a> 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。</div>`, [
+      <div class="pick-row"><label data-i18n="Cytoidplayer路径">Cytoidplayer路径</label><span id="setPlayerExe" class="settings-path">${escapeHtml(playerPath)}</span><button type="button" class="mini-btn" id="btnPickPlayerFolder" data-i18n="选择文件夹…">选择文件夹…</button><span class="field-tip" id="playerPathTip">i</span></div>
+      <div class="pick-row"><label data-i18n="界面语言">界面语言</label><select id="setLanguage">
+        <option value="zh-CN">简体中文</option>
+        <option value="zh-TW">繁體中文</option>
+        <option value="en">English</option>
+      </select></div>
+      <div class="help-text" style="margin-top:8px"><b data-i18n="关于">关于</b><span data-i18n="：Cyster v0.1beta — 基于 ">：Cyster v0.1beta — 基于 </span><a href="#" id="ghLink">Cytoid 官方 GitHub</a><span data-i18n=" 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。"> 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。</span></div>`, [
       { label: '关闭', cls: 'primary' }
     ], () => {});
+    if (window.SBi18n) window.SBi18n.applyStatic(document.getElementById('modalBox'));
     $('#playerPathTip').addEventListener('mouseenter', (ev) => {
       if (window.SBSchema) window.SBSchema.showFieldTip(ev.currentTarget, playerPathTip);
     });
@@ -8857,6 +8880,23 @@
       e.preventDefault();
       window.sbAPI.openExternal('https://github.com/Cytoid/cytoid');
     });
+    const langSel = $('#setLanguage');
+    if (langSel) {
+      langSel.value = curLang;
+      langSel.addEventListener('change', () => {
+        const l = langSel.value;
+        if (!window.SBi18n) return;
+        window.SBi18n.setLanguage(l, true);
+        window.SBi18n.applyStatic(document);
+        window.SBi18n.localizeSchema();
+        window.SBi18n.applyStatic(document.getElementById('modalBox'));
+        renderProperties();
+        renderObjectTree();
+        renderTimeline();
+        showWelcome();
+        toast(window.SBi18n.t('语言已切换'));
+      });
+    }
   }
 
   // ---------------------------------------------------------------
@@ -9308,7 +9348,8 @@
       viewToggles.forEach((entry) => {
         const cb = document.getElementById(entry.dataset.viewToggle);
         if (!cb) return;
-        entry.textContent = cb.checked ? (entry.dataset.off || entry.textContent) : (entry.dataset.on || entry.textContent);
+        const label = cb.checked ? (entry.dataset.off || entry.textContent) : (entry.dataset.on || entry.textContent);
+        entry.textContent = window.SBi18n ? window.SBi18n.t(label) : label;
       });
     };
     viewToggles.forEach((entry) => {
@@ -10443,6 +10484,12 @@
       const s = await window.sbAPI.getSettings();
       if (s) state.settings = { ...state.settings, ...s };
     } catch (e) {}
+    // 语言初始化：应用保存的语言并翻译静态 DOM 与属性面板 schema。
+    if (window.SBi18n) {
+      window.SBi18n.setLanguage(state.settings.language || 'zh-CN', false);
+      window.SBi18n.applyStatic();
+      window.SBi18n.localizeSchema();
+    }
     // Restore the remembered volume onto the slider and the audio player.
     const savedVol = typeof state.settings.volume === 'number' && isFinite(state.settings.volume)
       ? Math.min(1, Math.max(0, state.settings.volume))

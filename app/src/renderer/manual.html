@@ -35,20 +35,23 @@
 </head>
 <body>
   <div id="manualToolbar">
-    <span class="mt-title">Cyster 使用手册</span>
-    <span id="manualStatus">加载中…</span>
+    <span class="mt-title" data-i18n="Cyster 使用手册">Cyster 使用手册</span>
+    <span id="manualStatus" data-i18n="加载中…">加载中…</span>
     <span class="mt-zoom">
-      <button class="mini-btn" id="btnZoomOut" title="缩小">−</button>
+      <button class="mini-btn" id="btnZoomOut" data-i18n="缩小" data-i18n-attr="title" title="缩小">−</button>
       <span id="manualZoomPct">100%</span>
-      <button class="mini-btn" id="btnZoomIn" title="放大">+</button>
-      <button class="mini-btn" id="btnZoomFit" title="适应宽度">适应宽度</button>
-      <button class="mini-btn" id="btnZoom100" title="实际大小">100%</button>
+      <button class="mini-btn" id="btnZoomIn" data-i18n="放大" data-i18n-attr="title" title="放大">+</button>
+      <button class="mini-btn" id="btnZoomFit" data-i18n="适应宽度" title="适应宽度">适应宽度</button>
+      <button class="mini-btn" id="btnZoom100" data-i18n="实际大小" data-i18n-attr="title" title="实际大小">100%</button>
     </span>
   </div>
   <div id="manualBody"><div id="docxContainer"></div></div>
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/docx-preview.min.js"></script>
   <script src="manual_textbox_flat.js"></script>
+  <script src="vendor/opencc.js"></script>
+  <script src="i18n_dict.js"></script>
+  <script src="i18n.js"></script>
   <script src="manual.js"></script>
 </body>
 </html>

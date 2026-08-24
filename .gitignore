@@ -58,6 +58,7 @@ tools/*
 !tools/dblclick_ns_probe.js
 !tools/unsaved_dialog_probe.js
 !tools/update_entry_probe.js
+!tools/i18n_probe.js
 
 # ---- 通用 ----
 *.log

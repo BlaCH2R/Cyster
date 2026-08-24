@@ -1,6 +1,7 @@
 // 独立进程窗口（note_selector.html）的编辑器逻辑。
 // 通过 window.sbAPI.nsCall 与主渲染进程通信（getContext/apply/highlight/pick/writeTime）。
 const $ = (s) => document.querySelector(s);
+const $t = (s) => (window.SBi18n ? window.SBi18n.t(s) : s);
 const LABELS = { 0: 'Click', 1: 'Hold', 2: 'LongHold', 3: 'Drag头', 4: 'Drag子', 5: 'Flick', 6: 'CDrag头', 7: 'CDrag子' };
 let ctx = null;
 // 已绑定对象 id：合并时间块复选框只在刚绑定/刚应用时随上下文同步，避免未提交
@@ -71,12 +72,12 @@ function fillFrom(sel) {
 async function load() {
   ctx = await window.sbAPI.nsCall('getContext');
   if (!ctx || !ctx.hasProject) {
-    $('#nsStatus').textContent = '请先在主窗口打开项目';
+    $('#nsStatus').textContent = $t('请先在主窗口打开项目');
     return;
   }
   $('#nsStatus').textContent = ctx.target
-    ? '绑定对象：' + ctx.target.id + (ctx.target.type ? '（' + ctx.target.type + '）' : '')
-    : '未绑定对象：应用时写入当前选中的 note 集合';
+    ? $t('绑定对象：') + ctx.target.id + (ctx.target.type ? '（' + ctx.target.type + '）' : '')
+    : $t('未绑定对象：应用时写入当前选中的 note 集合');
   buildTypes();
   const isList = !!(ctx.target && Array.isArray(ctx.target.note));
   $('#nsFilterArea').style.display = isList ? 'none' : '';
@@ -93,7 +94,7 @@ async function load() {
   $('#nsPick').textContent = ctx.pickActive ? '停止拾取' : '手动拾取note';
   if (isList) {
     renderList(ctx.target.note);
-    $('#nsStatus').textContent = '手动列表模式：' + ctx.target.note.length + ' 个 note（点击“应用”后生效）';
+    $('#nsStatus').textContent = $t('手动列表模式：') + ctx.target.note.length + $t(' 个 note（点击“应用”后生效）');
     updateHit();
     return;
   }
@@ -132,7 +133,7 @@ async function apply() {
   const sel = isList ? (ctx.target.note || []) : readSel();
   const merge = $('#nsMerge').checked;
   const r = await window.sbAPI.nsCall('apply', [{ id: ctx.target ? ctx.target.id : null, note: sel, merge }]);
-  $('#nsStatus').textContent = (r && r.ok) ? '已应用：' + JSON.stringify(r.note) : ('应用失败：' + ((r && r.msg) || '未知错误'));
+  $('#nsStatus').textContent = (r && r.ok) ? $t('已应用：') + JSON.stringify(r.note) : ($t('应用失败：') + ((r && r.msg) || $t('未知错误')));
   lastBoundId = null; // 应用后从已提交状态重新同步（含 merge）
   load();
 }
@@ -163,24 +164,24 @@ $('#nsToFilter').addEventListener('click', async () => {
   if (!ctx || !ctx.target) return;
   const r = await window.sbAPI.nsCall('draft', [{ note: {} }]);
   $('#nsStatus').textContent = (r && r.ok)
-    ? '已切换至筛选样式草稿（点击“应用”生效）'
-    : ('切换失败：' + ((r && r.msg) || '未知错误'));
+    ? $t('已切换至筛选样式草稿（点击“应用”生效）')
+    : ($t('切换失败：') + ((r && r.msg) || $t('未知错误')));
   load();
 });
 $('#nsWriteTime').addEventListener('click', async () => {
   const r = await window.sbAPI.nsCall('writeTime', [{ expr: $('#nsTimeExpr').value }]);
-  $('#nsStatus').textContent = (r && r.ok) ? '已写入时间表达式' : ('写入失败：' + ((r && r.msg) || ''));
+  $('#nsStatus').textContent = (r && r.ok) ? $t('已写入时间表达式') : ($t('写入失败：') + ((r && r.msg) || ''));
 });
 
 // 主窗口推送：预览拾取到 note / 点击了时间输入框。
 window.sbAPI.nsOnPicked((p) => {
   if (p && p.targetId && ctx && ctx.target && p.targetId === ctx.target.id) load();
-  else if (p) $('#nsStatus').textContent = '已拾取 note ' + p.noteId + '（共 ' + p.count + ' 个）';
+  else if (p) $('#nsStatus').textContent = $t('已拾取 note ') + p.noteId + $t('（共 ') + p.count + $t(' 个）');
 });
 window.sbAPI.nsOnMessage((m) => {
   if (m && m.type === 'time-target') {
     $('#nsTimeRow').style.display = '';
-    $('#nsStatus').textContent = '时间模式：将写入对象 ' + m.id + ' 的时间输入框';
+    $('#nsStatus').textContent = $t('时间模式：将写入对象 ') + m.id + $t(' 的时间输入框');
   } else if (m && m.type === 'note-target') {
     // 点击属性面板的 Note 输入框：切换到该对象已使用的 note 选择器。
     $('#nsTimeRow').style.display = 'none';
@@ -190,10 +191,20 @@ window.sbAPI.nsOnMessage((m) => {
       $('#nsMerge').checked = !!m.merge;
       lastBoundId = undefined;
     }
-    $('#nsStatus').textContent = 'Note 模式：已绑定对象 ' + m.id + ' 的 note 选择器';
+    $('#nsStatus').textContent = $t('Note 模式：已绑定对象 ') + m.id + $t(' 的 note 选择器');
     load();
   }
 });
+// 语言初始化：读取设置里的语言并翻译窗口静态文本。
+(async () => {
+  try {
+    const s = await window.sbAPI.getSettings();
+    if (window.SBi18n) {
+      window.SBi18n.setLanguage((s && s.language) || 'zh-CN', false);
+      window.SBi18n.applyStatic(document);
+    }
+  } catch (e) {}
+})();
 window.addEventListener('beforeunload', () => {
   window.sbAPI.nsCall('pick', [false]);
   window.sbAPI.nsCall('discard', []);

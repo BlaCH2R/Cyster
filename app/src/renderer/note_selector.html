@@ -22,40 +22,43 @@
 </head>
 <body>
   <div id="nsApp">
-    <div class="help-text" id="nsStatus">加载中…</div>
+    <div class="help-text" id="nsStatus" data-i18n="加载中…">加载中…</div>
     <div id="nsFilterArea">
-      <div class="field"><label>类型</label><div class="ns-types" id="nsTypes"></div></div>
-      <div class="field"><label>ID 从</label><input type="number" id="nsStart" placeholder="不限"></div>
-      <div class="field"><label>ID 到</label><input type="number" id="nsEnd" placeholder="不限"></div>
-      <div class="field"><label>方向</label><select id="nsDir">
-        <option value="">不限</option><option value="1">上行 (1)</option><option value="-1">下行 (-1)</option>
+      <div class="field"><label data-i18n="类型">类型</label><div class="ns-types" id="nsTypes"></div></div>
+      <div class="field"><label data-i18n="ID 从">ID 从</label><input type="number" id="nsStart" data-i18n-attr="placeholder" data-i18n="不限" placeholder="不限"></div>
+      <div class="field"><label data-i18n="ID 到">ID 到</label><input type="number" id="nsEnd" data-i18n-attr="placeholder" data-i18n="不限" placeholder="不限"></div>
+      <div class="field"><label data-i18n="方向">方向</label><select id="nsDir">
+        <option value="" data-i18n="不限">不限</option><option value="1" data-i18n="上行 (1)">上行 (1)</option><option value="-1" data-i18n="下行 (-1)">下行 (-1)</option>
       </select></div>
-      <div class="field"><label>min_X</label><input type="number" id="nsMinX" step="0.01" placeholder="不限"></div>
-      <div class="field"><label>max_X</label><input type="number" id="nsMaxX" step="0.01" placeholder="不限"></div>
-      <div class="field"><label>命中数量</label><span id="nsHit" style="color:var(--accent)">-</span></div>
+      <div class="field"><label>min_X</label><input type="number" id="nsMinX" step="0.01" data-i18n-attr="placeholder" data-i18n="不限" placeholder="不限"></div>
+      <div class="field"><label>max_X</label><input type="number" id="nsMaxX" step="0.01" data-i18n-attr="placeholder" data-i18n="不限" placeholder="不限"></div>
+      <div class="field"><label data-i18n="命中数量">命中数量</label><span id="nsHit" style="color:var(--accent)">-</span></div>
     </div>
     <div class="field" id="nsListRow" style="display:none">
-      <label>已选 note</label>
+      <label data-i18n="已选 note">已选 note</label>
       <div id="nsList"></div>
     </div>
-    <div class="field" id="nsMergeRow"><label>合并时间块</label><input type="checkbox" id="nsMerge"></div>
+    <div class="field" id="nsMergeRow"><label data-i18n="合并时间块">合并时间块</label><input type="checkbox" id="nsMerge"></div>
     <div class="field" id="nsTimeRow" style="display:none">
-      <label>写入时间</label>
+      <label data-i18n="写入时间">写入时间</label>
       <select id="nsTimeExpr">
-        <option value="start:$note">起始 start:$note</option>
-        <option value="end:$note">结束 end:$note</option>
-        <option value="intro:$note">渐入 intro:$note</option>
+        <option value="start:$note" data-i18n="起始 start:$note">起始 start:$note</option>
+        <option value="end:$note" data-i18n="结束 end:$note">结束 end:$note</option>
+        <option value="intro:$note" data-i18n="渐入 intro:$note">渐入 intro:$note</option>
         <option value="at:$note:0.5">at:$note:0.5</option>
       </select>
-      <button class="mini-btn" id="nsWriteTime">写入</button>
+      <button class="mini-btn" id="nsWriteTime" data-i18n="写入">写入</button>
     </div>
     <div class="btn-row">
-      <button class="mini-btn" id="nsApply">应用</button>
-      <button class="mini-btn" id="nsToggleAll">全选/清空条件</button>
-      <button class="mini-btn" id="nsPick">手动拾取note</button>
-      <button class="mini-btn" id="nsToFilter" style="display:none">切换至筛选样式并清空列表</button>
+      <button class="mini-btn" id="nsApply" data-i18n="应用">应用</button>
+      <button class="mini-btn" id="nsToggleAll" data-i18n="全选/清空条件">全选/清空条件</button>
+      <button class="mini-btn" id="nsPick" data-i18n="手动拾取note">手动拾取note</button>
+      <button class="mini-btn" id="nsToFilter" style="display:none" data-i18n="切换至筛选样式并清空列表">切换至筛选样式并清空列表</button>
     </div>
   </div>
+  <script src="vendor/opencc.js"></script>
+  <script src="i18n_dict.js"></script>
+  <script src="i18n.js"></script>
   <script src="note_selector_tool.js"></script>
 </body>
 </html>

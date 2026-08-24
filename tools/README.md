@@ -24,5 +24,6 @@
 - `dblclick_ns_probe.js`：时间块双击全选（含 note 选择器）
 - `unsaved_dialog_probe.js`：未保存确认与打开项目提示去重
 - `update_entry_probe.js`：检查更新入口与 GitHub 链接
+- `i18n_probe.js`：语言切换（简体/繁体/英文）与词典/schema 本地化验证
 
 其余 `tools/` 脚本属于本地开发资产，恢复完整工具集请从旧提交或本地备份取回。

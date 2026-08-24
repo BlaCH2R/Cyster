@@ -14,6 +14,7 @@
   "devDependencies": {
     "electron": "latest",
     "electron-builder": "latest",
+    "opencc-js": "^1.4.2",
     "playwright": "^1.62.1"
   },
   "build": {

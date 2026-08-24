@@ -1,6 +1,7 @@
 // 独立进程窗口（manual.html）的使用手册查看器。
 // 主进程把随应用打包的 docx 读成 base64，这里用 docx-preview（纯 JS）渲染。
 const $ = (s) => document.querySelector(s);
+const $t = (s) => (window.SBi18n ? window.SBi18n.t(s) : s);
 const ZOOMS = [0.5, 0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
 let zoomIdx = 4; // 100%
 let baseWidth = 0; // zoom=1 时的文档内容宽度（docx-preview 渲染后测量）
@@ -85,14 +86,14 @@ async function loadManual() {
   try {
     res = await window.sbAPI.readManual();
   } catch (e) {
-    status.textContent = '读取手册失败：' + (e && e.message ? e.message : e);
+    status.textContent = $t('读取手册失败：') + (e && e.message ? e.message : e);
     return;
   }
   if (!res || !res.data) {
-    status.textContent = '读取手册失败：文档为空';
+    status.textContent = $t('读取手册失败：文档为空');
     return;
   }
-  status.textContent = '正在渲染…';
+  status.textContent = $t('正在渲染…');
   try {
     // base64 → ArrayBuffer（docx-preview 需要 Blob/ArrayBuffer）
     const bin = atob(res.data);
@@ -114,7 +115,7 @@ async function loadManual() {
     wireTocJumps(container);
     status.textContent = '';
   } catch (e) {
-    status.textContent = '渲染失败：' + (e && e.message ? e.message : e);
+    status.textContent = $t('渲染失败：') + (e && e.message ? e.message : e);
   }
 }
 
@@ -134,5 +135,16 @@ $('#btnZoomFit').addEventListener('click', () => {
   const zoom = Math.round(ZOOMS[zoomIdx] * 100) === exact ? ZOOMS[zoomIdx] : z;
   applyZoom(zoom);
 });
+
+// 语言初始化：读取设置里的语言并翻译窗口静态文本。
+(async () => {
+  try {
+    const s = await window.sbAPI.getSettings();
+    if (window.SBi18n) {
+      window.SBi18n.setLanguage((s && s.language) || 'zh-CN', false);
+      window.SBi18n.applyStatic(document);
+    }
+  } catch (e) {}
+})();
 
 loadManual();
