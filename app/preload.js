@@ -28,8 +28,10 @@ contextBridge.exposeInMainWorld('sbAPI', {
   saveLevelAs: (defaultName) => ipcRenderer.invoke('dialog:save-level-as', defaultName),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (s) => ipcRenderer.invoke('settings:set', s),
+  appVersion: () => ipcRenderer.invoke('app:version'),
   openPath: (p) => ipcRenderer.invoke('app:open-path', p),
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
+  repairFileAssociations: () => ipcRenderer.invoke('app:repair-file-associations'),
   pickFolder: (opts) => ipcRenderer.invoke('dialog:pick-folder', opts),
   getAsset: (name) => ipcRenderer.invoke('app:get-asset', name)
   ,
@@ -52,6 +54,7 @@ contextBridge.exposeInMainWorld('sbAPI', {
   readManual: () => ipcRenderer.invoke('docs:read-manual'),
   // 在线更新桥（electron-updater）。
   updateCheck: () => ipcRenderer.invoke('update:check'),
+  updateDownload: () => ipcRenderer.invoke('update:download'),
   updateInstall: () => ipcRenderer.invoke('update:install'),
   onUpdateAvailable: (cb) => ipcRenderer.on('update:available', (e, p) => cb(p)),
   onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (e, p) => cb(p)),

@@ -37,7 +37,7 @@ function localizedTitle(zh, tw, en) {
 function initAutoUpdater() {
   if (!app.isPackaged || updaterReady) return;
   updaterReady = true;
-  autoUpdater.autoDownload = true;          // 后台下载，下载完再提示安装
+  autoUpdater.autoDownload = false;         // 不自动下载：检测到更新只提示，用户确认后才下载
   autoUpdater.autoInstallOnAppQuit = true;  // 用户退出时自动安装已下载的更新
   autoUpdater.on('update-available', (info) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -83,8 +83,19 @@ ipcMain.handle('update:check', async () => {
       ok: true,
       current: app.getVersion(),
       available: (info && info.version) || null,
-      upToDate: !info
+      upToDate: !(r && r.isUpdateAvailable)
     };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+});
+
+ipcMain.handle('update:download', async () => {
+  if (!app.isPackaged) return { ok: false, dev: true };
+  initAutoUpdater();
+  try {
+    await autoUpdater.downloadUpdate();
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: String((e && e.message) || e) };
   }
@@ -99,6 +110,8 @@ ipcMain.handle('update:install', async () => {
     return { ok: false, error: String((e && e.message) || e) };
   }
 });
+
+ipcMain.handle('app:version', () => app.getVersion());
 
 // 主窗口语言切换后，通知独立工具窗口（手册 / Note 选择器）同步刷新。
 ipcMain.on('app:language-changed', (e, lang) => {
@@ -125,7 +138,7 @@ function createWindow() {
     height: 920,
     minWidth: 1200,
     minHeight: 720,
-    title: 'Cyster v0.1beta',
+    title: 'Cyster v' + app.getVersion(),
     icon: path.join(__dirname, 'assets', 'icon.ico'),
     backgroundColor: '#14171c',
     autoHideMenuBar: true,
@@ -332,11 +345,28 @@ async function ensureFileAssociation() {
     const cur = await regQueryValue(commandKey);
     if (cur && cur === expected) return;
   } catch (e) {}
+  await registerFileAssociations();
+}
+
+// 强制（重新）注册 .ctr / .ctdsber 文件关联到当前可执行文件。
+async function registerFileAssociations() {
+  const exe = process.execPath;
+  const commandKey = 'HKCU\\Software\\Classes\\Cyster.Project\\shell\\open\\command';
   await regAddValue('HKCU\\Software\\Classes\\.ctr', 'Cyster.Project');
   await regAddValue('HKCU\\Software\\Classes\\.ctdsber', 'Cyster.Project');
   await regAddValue('HKCU\\Software\\Classes\\Cyster.Project\\DefaultIcon', `"${exe}",0`);
-  await regAddValue(commandKey, expected);
+  await regAddValue(commandKey, `"${exe}" "%1"`);
 }
+
+ipcMain.handle('app:repair-file-associations', async () => {
+  if (!app.isPackaged) return { ok: false, dev: true };
+  try {
+    await registerFileAssociations();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+});
 
 // After the rename the userData folder moves (Cystber -> Cyster); carry over
 // the saved settings (recent projects, remembered dialog folders) once.

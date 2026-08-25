@@ -1,8 +1,7 @@
 {
   "name": "cyster",
   "productName": "Cyster",
-  "version": "0.1.0-beta",
-  "description": "Cytoid 关卡 StoryBoard 可视化编辑工具（时间轴/素材/实时游戏预览/规范导出）",
+  "version": "0.1.2-beta",
   "main": "main.js",
   "author": "Cyster Team",
   "license": "MIT",

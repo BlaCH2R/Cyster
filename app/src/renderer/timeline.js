@@ -953,10 +953,10 @@
             if (e.ctrlKey || e.metaKey) { this.toggleObject(o.id); return; }
             if (e.shiftKey) { this.addObject(o.id); return; }
             // 双击检测：选中会重建轨道 DOM，原生 dblclick 会因元素被替换而失效，
-            // 因此用 mousedown 时间戳判断（同一对象 350ms 内第二次按下）。
+            // 因此用 mousedown 时间戳判断（同一对象 750ms 内第二次按下）。
             const now = Date.now();
             const isDouble = this._lastClipDown && this._lastClipDown.id === o.id &&
-              now - this._lastClipDown.t < 350;
+              now - this._lastClipDown.t < 750;
             this._lastClipDown = { id: o.id, t: now };
             if (isDouble) {
               e.preventDefault();
@@ -987,8 +987,8 @@
             if (this.opts.onObjectContextMenu) this.opts.onObjectContextMenu(o.id, e.clientX, e.clientY);
           });
           // 双击兜底：第一次 mousedown 会重建轨道 DOM，大谱面下同步渲染可能
-          // 超过 mousedown 时间戳的 350ms 窗口导致双击识别失败；原生 dblclick
-          // 落在重建后的新元素上，这里单独挂监听保证双击全选始终生效（与
+          // 超过 mousedown 时间戳窗口导致双击识别失败；原生 dblclick 落在
+          // 重建后的新元素上，这里单独挂监听保证双击全选始终生效（与
           // mousedown 检测路径幂等，重复触发无副作用）。
           clip.addEventListener('dblclick', (e) => {
             e.preventDefault();

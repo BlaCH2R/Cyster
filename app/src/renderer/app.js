@@ -91,6 +91,7 @@
     settings: {},
     audioReady: false,
     audioDuration: null,
+    audioLoadToken: 0,      // 音乐加载令牌：快速切换难度时丢弃过期加载结果
     volume: 1,
     kfClipboard: [],        // copied keyframes [{objId, time, state}]
     objClipboard: [],       // copied objects [{type, group, obj}]
@@ -747,7 +748,9 @@
     // 预览 canvasRatio 跟随选定的窗口比例，loadLevel 用其构造 chart。
     preview.canvasRatio = currentPreviewRatio();
     await preview.loadLevel(state.level, state.levelDir, state.chartText, state.storyboard);
-    setupAudio();
+    // 等待音乐加载完成后再继续：加载弹窗期间禁止其它操作，也避免后续
+    // 确认框（如谱面变更提示）与加载弹窗互相覆盖。
+    await setupAudio();
     $('#previewEmpty').style.display = 'none';
     $('#previewHint').style.display = 'block';
     $('#previewHint').textContent = __t('模拟实时预览·实际效果以cytoid原生为准');
@@ -856,13 +859,20 @@
     state.audioDuration = null;
     const musicPath = state.musicPath;
     if (!musicPath) return;
+    const token = ++state.audioLoadToken;
+    // 音乐加载期间显示模态进度弹窗：遮罩拦截全部指针/键盘操作，
+    // 加载完成或失败后自动关闭（不再使用原来的“音乐已就绪”toast）。
+    showMusicLoadingModal(musicPath.split(/[\\/]/).pop() || musicPath);
     try {
       const full = state.levelDir.replace(/\\/g, '/') + '/' + musicPath;
+      updateMusicLoadingStage(__t('正在读取音乐文件…'));
       const res = await window.sbAPI.readFileBuffer(full);
       const bytes = Uint8Array.from(atob(res.data), (c) => c.charCodeAt(0));
       const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
       const player = new MusicPlayer();
+      updateMusicLoadingStage(__t('正在解码音频…'));
       await player.load(ab);
+      if (token !== state.audioLoadToken) return; // 已切换难度，丢弃过期结果
       // Apply the current volume immediately: a new player defaults to 100%
       // and must pick up the persisted slider value on project switch.
       player.volume = state.volume;
@@ -870,8 +880,10 @@
       state.audioDuration = player.duration;
       preview.audio = player;
       renderTimeline();
-      toast('音乐已就绪（' + player.duration.toFixed(1) + 's）');
+      closeMusicLoadingModal();
     } catch (e) {
+      if (token !== state.audioLoadToken) return;
+      closeMusicLoadingModal();
       toast(__t('音乐加载失败: ') + e.message, true);
     }
   }
@@ -7832,6 +7844,30 @@
     $('#modalBox').classList.remove('modal-wide');
   }
 
+  // 音乐加载进度弹窗：加载期间模态遮罩禁止其它操作，完成/失败后自动关闭。
+  function showMusicLoadingModal(fileName) {
+    $('#modalTitle').textContent = __t('正在加载音乐');
+    $('#modalBody').innerHTML = `
+      <div class="music-loading">
+        <div class="music-loading-file" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</div>
+        <div class="music-loading-track"><div class="music-loading-fill"></div></div>
+        <div class="music-loading-stage">${__t('正在读取音乐文件…')}</div>
+      </div>`;
+    $('#modalFoot').innerHTML = '';
+    $('#modalMask').classList.remove('hidden');
+    $('#modalBox').classList.remove('modal-wide');
+  }
+
+  function updateMusicLoadingStage(text) {
+    const el = document.querySelector('#modalBody .music-loading-stage');
+    if (el) el.textContent = text;
+  }
+
+  function closeMusicLoadingModal() {
+    $('#modalMask').classList.add('hidden');
+    $('#modalBox').classList.remove('modal-wide');
+  }
+
   let pendingConfirm = null;
   let pendingChartResolve = null;
 
@@ -7885,6 +7921,45 @@
 
   // ---- 在线更新：手动检查 + 后台更新事件提示 ----
   let updateChecking = false;
+  let updateAvailableVersion = null; // 已检测到但尚未下载的新版本号
+  let appVersionCached = '';         // 应用版本（app.getVersion），用于界面版本号展示
+
+  // 界面中所有版本号（左上角品牌旁 / 欢迎页 / 窗口标题 / 设置-关于）统一跟随
+  // app.getVersion()，禁止硬编码版本号（约定见 AGENTS.md）。
+  async function applyAppVersion() {
+    try {
+      const v = (window.sbAPI && window.sbAPI.appVersion) ? await window.sbAPI.appVersion() : '';
+      appVersionCached = v || '';
+      if (!appVersionCached) return;
+      const ver = 'v' + appVersionCached;
+      const brand = document.querySelector('.brand-ver');
+      if (brand) brand.textContent = ver;
+      const wv = document.querySelector('.welcome-ver');
+      if (wv) wv.textContent = ver;
+      const aboutVer = document.getElementById('aboutVer');
+      if (aboutVer) aboutVer.textContent = ver;
+      document.title = 'Cyster ' + ver;
+    } catch (e) {
+      // 版本获取失败时保持 HTML 里的静态回退值，不影响其它功能。
+    }
+  }
+
+  // 检测到新版本后，在“设置”选项卡与“检查更新”菜单项上亮红点引导用户点击。
+  function setUpdateDot(version) {
+    updateAvailableVersion = version || updateAvailableVersion;
+    const tab = document.querySelector('.menu-item[data-menu="settings"]');
+    const entry = document.querySelector('.menu-entry[data-action="check-update"]');
+    if (tab) tab.classList.add('has-update-dot');
+    if (entry) entry.classList.add('has-update-dot');
+  }
+
+  function clearUpdateDot() {
+    updateAvailableVersion = null;
+    const tab = document.querySelector('.menu-item[data-menu="settings"]');
+    const entry = document.querySelector('.menu-entry[data-action="check-update"]');
+    if (tab) tab.classList.remove('has-update-dot');
+    if (entry) entry.classList.remove('has-update-dot');
+  }
 
   // 切换语言并全量刷新界面（设置面板与欢迎页下拉共用）。
   // 同步两个语言下拉的显示值（取消切换时复位用）。
@@ -7927,8 +8002,18 @@
         toast((window.SBi18n ? window.SBi18n.t('检查更新失败：') : '检查更新失败：') + (r.error || '未知错误'), true);
         return;
       }
-      if (r.upToDate) toast((window.SBi18n ? window.SBi18n.t('已是最新版本（v') : '已是最新版本（v') + r.current + '）');
-      else toast((window.SBi18n ? window.SBi18n.t('发现新版本 v') : '发现新版本 v') + r.available + (window.SBi18n ? window.SBi18n.t('，正在后台下载…') : '，正在后台下载…'));
+      if (r.upToDate) {
+        clearUpdateDot();
+        toast((window.SBi18n ? window.SBi18n.t('已是最新版本（v') : '已是最新版本（v') + r.current + '）');
+        return;
+      }
+      // 发现新版本：先亮红点，再询问用户是否开始下载（不自动下载）。
+      setUpdateDot(r.available);
+      const choice = await confirmDialog('发现新版本', __t('发现新版本 v') + r.available + __t('，是否立即下载？'), [
+        { label: '取消', cls: '' },
+        { label: '开始下载', cls: 'primary' }
+      ]);
+      if (choice === '开始下载') await startUpdateDownload(r.available);
     } catch (e) {
       toast((window.SBi18n ? window.SBi18n.t('检查更新失败：') : '检查更新失败：') + (e && e.message ? e.message : e), true);
     } finally {
@@ -7936,18 +8021,95 @@
     }
   }
 
+  // 用户确认后开始下载：先弹出下载进度弹窗，再通知主进程下载。
+  async function startUpdateDownload(version) {
+    showUpdateProgressModal(version || updateAvailableVersion || '');
+    try {
+      const r = await window.sbAPI.updateDownload();
+      if (r && r.dev) {
+        closeUpdateProgressModal();
+        toast('当前为开发模式，不进行在线更新下载');
+        return;
+      }
+      if (!r || !r.ok) {
+        closeUpdateProgressModal();
+        toast((window.SBi18n ? window.SBi18n.t('下载更新失败：') : '下载更新失败：') + ((r && r.error) || '未知错误'), true);
+      }
+    } catch (e) {
+      closeUpdateProgressModal();
+      toast((window.SBi18n ? window.SBi18n.t('下载更新失败：') : '下载更新失败：') + (e && e.message ? e.message : e), true);
+    }
+  }
+
+  function formatBytes(n) {
+    if (n == null || !isFinite(n)) return '0 B';
+    if (n < 1024) return Math.round(n) + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // 更新下载进度弹窗：确定进度条 + 已下载 / 总量 / 速度。
+  function showUpdateProgressModal(version) {
+    $('#modalTitle').textContent = __t('正在下载更新');
+    $('#modalBody').innerHTML = `
+      <div class="update-progress">
+        <div class="update-progress-msg">${__t('发现新版本 v')}${escapeHtml(version)}${__t('，正在后台下载…')}</div>
+        <div class="music-loading-track"><div class="update-progress-fill" style="width:0%"></div></div>
+        <div class="update-progress-stage">0% · 0 B / 0 B · 0 B/s</div>
+      </div>`;
+    $('#modalFoot').innerHTML = '';
+    $('#modalMask').classList.remove('hidden');
+    $('#modalBox').classList.remove('modal-wide');
+  }
+
+  function updateUpdateProgressModal(p) {
+    const fill = document.querySelector('#modalBody .update-progress-fill');
+    const stage = document.querySelector('#modalBody .update-progress-stage');
+    if (!fill || !stage) return;
+    const percent = Math.min(100, Math.max(0, Math.round((p && p.percent) || 0)));
+    fill.style.width = percent + '%';
+    stage.textContent = percent + '% · ' + formatBytes(p && p.transferred) + ' / ' + formatBytes(p && p.total) + ' · ' + formatBytes(p && p.bytesPerSecond) + '/s';
+  }
+
+  function closeUpdateProgressModal() {
+    $('#modalMask').classList.add('hidden');
+    $('#modalBox').classList.remove('modal-wide');
+  }
+
+  // 修复 .ctr / .ctdsber 项目文件关联（重新注册到当前可执行文件）。
+  async function repairFileAssociations() {
+    try {
+      const r = await window.sbAPI.repairFileAssociations();
+      if (r && r.dev) { toast('当前为开发模式，不修改文件关联'); return; }
+      if (r && r.ok) toast(__t('项目文件关联已修复'));
+      else toast(__t('修复项目文件关联失败: ') + ((r && r.error) || '未知错误'), true);
+    } catch (e) {
+      toast(__t('修复项目文件关联失败: ') + (e && e.message ? e.message : e), true);
+    }
+  }
+
   function wireUpdateEvents() {
     if (!window.sbAPI.onUpdateAvailable) return;
     window.sbAPI.onUpdateAvailable((p) => {
-      toast((window.SBi18n ? window.SBi18n.t('发现新版本 v') : '发现新版本 v') + (p && p.version ? p.version : '') + (window.SBi18n ? window.SBi18n.t('，正在后台下载…') : '，正在后台下载…'));
+      // 只亮红点提示，不自动下载；用户点击确认后再走 startUpdateDownload。
+      setUpdateDot((p && p.version) || '');
     });
-    window.sbAPI.onUpdateProgress(() => {});
+    window.sbAPI.onUpdateProgress((p) => {
+      updateUpdateProgressModal(p);
+    });
     window.sbAPI.onUpdateDownloaded((p) => {
-      confirmDialog('更新已就绪', __t('新版本 v') + (p && p.version ? p.version : '') + __t('已下载完成，重启后即可安装。'), [
+      closeUpdateProgressModal();
+      clearUpdateDot();
+      confirmDialog('更新已就绪', __t('新版本 v') + (p && p.version ? p.version : '') + __t('已下载完成，重启后即可安装。') + ` <a href="#" id="relNotesLink">${__t('查看更新说明')}</a>`, [
         { label: '稍后', cls: '' },
         { label: '立即重启安装', cls: 'primary' }
       ]).then((choice) => {
         if (choice === '立即重启安装') window.sbAPI.updateInstall();
+      });
+      const rel = $('#relNotesLink');
+      if (rel) rel.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.sbAPI.openExternal('https://github.com/BlaCH2R/Cyster/releases');
       });
     });
   }
@@ -8029,7 +8191,7 @@
   function addRecentProject(path) {
     const list = (state.settings.recentProjects || []).filter((p) => p !== path);
     list.unshift(path);
-    state.settings.recentProjects = list.slice(0, 6);
+    state.settings.recentProjects = list.slice(0, 100);
     window.sbAPI.setSettings(state.settings).catch(() => {});
   }
 
@@ -8072,7 +8234,7 @@
               { label: '关闭当前项目并创建', cls: 'primary' }
             ]
           );
-          if (!choice) return;
+          if (!choice || choice === '取消') return;
         }
       }
       // Target project file already exists: open / overwrite / cancel (Cylheim-style)
@@ -8086,7 +8248,7 @@
             { label: '覆盖为新项目', cls: 'primary' }
           ]
         );
-        if (!choice) return;
+        if (!choice || choice === '取消') return;
         if (choice === '打开已有项目') {
           try {
             const res = await window.sbAPI.projectOpen({ path: projectPath });
@@ -8300,7 +8462,7 @@
             { label: '关闭当前项目并打开', cls: 'primary' }
           ]
         );
-        if (!choice) return;
+        if (!choice || choice === '取消') return;
       }
     }
     const res = await window.sbAPI.projectOpen({ path });
@@ -8889,6 +9051,10 @@
     const playerPath = (state.settings && state.settings.playerExe) || playerExeDefault();
     const playerPathTip = __t('选择 Cytoidplayer.exe 所在的文件夹（保存后生效）；加载关卡时会先把当前关卡复制到其 player 文件夹（原内容移入新建的 Backup file+时间戳 文件夹），再启动 Cytoidplayer');
     const curLang = window.SBi18n ? window.SBi18n.getLanguage() : 'zh-CN';
+    // 仅简体中文界面显示作者 B 站账号提示行（其它语言界面不展示）。
+    const aboutBili = curLang === 'zh-CN'
+      ? `<div class="help-text" style="margin-top:4px">无法正常更新时请访问作者Bc的哔哩哔哩账户（<a href="#" id="biliLink">https://space.bilibili.com/16101997</a>）以获取最新版本讯息</div>`
+      : '';
     openModal('设置', `
       <div class="pick-row"><label data-i18n="Cytoidplayer路径">Cytoidplayer路径</label><span id="setPlayerExe" class="settings-path">${escapeHtml(playerPath)}</span><button type="button" class="mini-btn" id="btnPickPlayerFolder" data-i18n="选择文件夹…">选择文件夹…</button><span class="field-tip" id="playerPathTip">i</span></div>
       <div class="pick-row"><label data-i18n="界面语言">界面语言</label><select id="setLanguage">
@@ -8896,7 +9062,8 @@
         <option value="zh-TW">繁體中文 / Traditional Chinese</option>
         <option value="en">English</option>
       </select></div>
-      <div class="help-text" style="margin-top:8px"><b data-i18n="关于">关于</b><span data-i18n="：Cyster v0.1beta — 基于 ">：Cyster v0.1beta — 基于 </span><a href="#" id="ghLink">Cytoid 官方 GitHub</a><span data-i18n=" 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。"> 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。</span></div>`, [
+      <div class="help-text" style="margin-top:8px"><b data-i18n="关于">关于</b><span data-i18n="：Cyster v">：Cyster v</span><span id="aboutVer">${escapeHtml(appVersionCached || '0.1beta')}</span><span data-i18n=" — 基于 "> — 基于 </span><a href="#" id="ghLink">Cytoid 官方 GitHub</a><span data-i18n=" 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。"> 与官方 StoryBoard 格式文档（v2.0.2）开发的 StoryBoard 可视化编辑器。StoryBoard 功能以文档明确列出的内容为准。</span></div>
+      ${aboutBili}`, [
       { label: '关闭', cls: 'primary' }
     ], () => {});
     if (window.SBi18n) window.SBi18n.applyStatic(document.getElementById('modalBox'));
@@ -8917,6 +9084,11 @@
     $('#ghLink').addEventListener('click', (e) => {
       e.preventDefault();
       window.sbAPI.openExternal('https://github.com/Cytoid/cytoid');
+    });
+    const biliLink = $('#biliLink');
+    if (biliLink) biliLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.sbAPI.openExternal('https://space.bilibili.com/16101997');
     });
     const langSel = $('#setLanguage');
     if (langSel) {
@@ -9270,6 +9442,7 @@
     const welcomeLang = $('#welcomeLang');
     if (welcomeLang) welcomeLang.addEventListener('change', () => applyLanguage(welcomeLang.value));
     wireUpdateEvents();
+    applyAppVersion();
     $('#btnWelcomeManage').addEventListener('click', hideWelcome);
     $('#btnWelcomeSettings').addEventListener('click', projectSettingsFlow);
     $('#welcomeGh').addEventListener('click', (e) => {
@@ -9332,6 +9505,7 @@
         else openNoteSelectorEditor(null);
       },
       'repair-merged-blocks': repairMergedBlocks,
+      'repair-file-assoc': repairFileAssociations,
       'quit': () => window.close(),
       'undo': undo,
       'redo': redo,
